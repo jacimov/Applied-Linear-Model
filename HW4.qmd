@@ -1,0 +1,753 @@
+---
+title: "Applied Linear Models"
+subtitle: "Homework 4"
+author: "Nicco Jacimovic"
+date: "2024-09-27"
+format:
+  pdf:
+    documentclass: scrreprt
+    papersize: letter
+    colorlinks: true
+    toc: true
+    toc-title: "Table of Contents"
+    toc-depth: 3
+    number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{afterpage}
+        \usepackage{graphicx}
+        \usepackage{mathpazo}
+        \usepackage{etoolbox}
+        \makeatletter
+        \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+        \makeatother
+    mainfont: Palatino
+    sansfont: Helvetica
+    monofont: Courier
+    fontsize: 11pt
+  html:
+    toc: true
+    toc-title: "Table of Contents"
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    css: custom.css
+    mainfont: Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif
+editor:
+  markdown:
+    wrap: 72
+---
+
+{{< pagebreak >}}
+
+```{r setup, include=FALSE}
+#| warning: false
+#| message: false
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(ggdag)
+library(styler)
+library(gridExtra)
+library(cowplot)
+library(GGally)
+library(car)
+library(broom)
+library(dplyr)
+library(car)
+```
+
+# Question 1: QQ Plots and Normality
+
+Note: Because I guide you throughout this exercise, Kenta will not give you points back if you do not complete it.
+
+QQ plots are easy to over-interpret: you see a few points at the ends of the range that deviate from the (0,1) line and you conclude that the residuals are not Gaussian; this is not always the right decision.
+
+Let's illustrate this. Let n = 20.
+
+## Generating QQ Plots
+
+Generate n random variables from a standard Gaussian (rnorm) and produce a QQplot of this dataset. Does the QQplot suggest normality?
+
+Repeat 19 more times and include in your HW solution the one QQplot that you thought did not look like Gaussian data (if you do not see such a plot, continue simulating until you see one).
+
+Do not include all your plots! Include just one plot.
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+library(ggplot2)
+library(qqplotr)
+
+set.seed(19)
+data <- data.frame(x = rnorm(20))
+
+ggplot(data, aes(sample = x)) +
+  stat_qq_point() +
+  labs(x = "Theoretical Quantiles", y = "Sample Quantiles",
+       title = "QQ Plot of Random Normal Data",
+       subtitle = "n = 20, seed = 19") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+**This is the best QQ plot that I could make not perfectly normal. There are slight deviations at the extremes, and it isn't perfectly linear. However the points generally follow the diagonal line well, especially in the center.**
+
+## QQ Plots with Confidence Envelopes
+
+You should conclude from this exercise that it is hard to judge normality (at least in small samples). To aid with your decision, it is a good idea to add a line and confidence envelope to the QQplot. This can be done using the function qqPlot in the car package.
+
+Using qqPlot in the car package, produce the QQplot for the data you showed in (a). Does this plot help you assess normality?
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+library(ggplot2)
+library(qqplotr)
+
+set.seed(19)
+data <- rnorm(20)
+
+# Create the ggplot
+ggplot(data.frame(y = data), aes(sample = y)) +
+  stat_qq_band(alpha = 0.3, conf = 0.95, qtype = 1, fill = "lightgrey") +
+  stat_qq_line(color = "darkred") +
+  stat_qq_point(color = "black", size = 3) +
+  labs(x = "Theoretical Quantiles", 
+       y = "Sample Quantiles",
+       title = "QQ Plot of Random Normal Data",
+       subtitle = "n = 20, seed = 19") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid.minor = element_blank())
+```
+
+**This QQ plot with confidence envelopes significantly aids in assessing normality. The points largely fall within the gray confidence envelope, suggesting the data is consistent with a normal distribution. While there are minor deviations at the extremes, these are well within the expected range for a sample of this size (n=20).**
+
+## Repeat for n = 50
+
+Repeat for n = 50.
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+library(ggplot2)
+library(qqplotr)
+
+set.seed(19)
+data <- rnorm(50)
+
+# Create the ggplot
+ggplot(data.frame(y = data), aes(sample = y)) +
+  stat_qq_band(alpha = 0.3, conf = 0.95, qtype = 1, fill = "lightgrey") +
+  stat_qq_line(color = "darkred") +
+  stat_qq_point(color = "black", size = 3) +
+  labs(x = "Theoretical Quantiles", 
+       y = "Sample Quantiles",
+       title = "QQ Plot of Random Normal Data",
+       subtitle = "n = 50, seed = 19") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5),
+        panel.grid.minor = element_blank())
+```
+
+**This QQ plot for n=50 provides stronger evidence for normality. The points align closely with the diagonal line and fall well within the confidence envelope. The increased sample size reduces random variability, resulting in a more reliable assessment.**
+
+# Question 2: Snowgeese Dataset Analysis
+
+## Regression and Diagnostics
+
+Compute the regression of Photo on Obs1 using least squares. Produce all model and case diagnostics: $y$ vs $\hat{y}$, standardized residual vs $\hat{y}$ and vs $x$, $\sqrt{}$ of absolute value of standardized residuals vs $\hat{y}$, studentized residual vs $\hat{y}$ with appropriate horizontal cut-off lines, QQplot of the standardized residuals with envelope, leverage and Cook's distances (did I forget anything?)
+
+Please fit all the plots in a single large plotting area, making sure that the plots are easy to read.
+
+Determine which assumptions, if any, appear to be violated. Also report problematic points, if any.
+
+Note: Points will not be given back if you fail to produce all the requested diagnostic plots. Make sure to put an envelope around the QQplot.
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+library(tidyverse)
+Geese_Data <- read_table("/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW2/snowgeese.txt")
+
+model <- lm(Photo ~ Obs1, data = Geese_Data)
+
+p1 <- ggplot(model, aes(x = .fitted, y = Photo)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "darkred") +
+  labs(x = "Fitted values", y = "Observed values", title = "y vs y-hat") +
+  theme_bw()
+
+p2 <- ggplot(model, aes(x = .fitted, y = rstandard(model))) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Fitted values", y = "Standardized residuals", title = "Standardized residuals vs y-hat") +
+  theme_bw()
+
+p3 <- ggplot(model, aes(x = Geese_Data$Obs1, y = rstandard(model))) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Obs1", y = "Standardized residuals", title = "Standardized residuals vs x") +
+  theme_bw()
+
+p4 <- ggplot(model, aes(x = .fitted, y = sqrt(abs(rstandard(model))))) +
+  geom_point() +
+  labs(x = "Fitted values", y = "√|Standardized residuals|", title = "√|Standardized residuals| vs y-hat") +
+  theme_bw()
+
+p5 <- ggplot(model, aes(x = .fitted, y = rstudent(model))) +
+  geom_point() +
+  geom_hline(yintercept = c(qt(0.05/45, 43, lower.tail = TRUE), -qt(0.05/45, 43, lower.tail = TRUE)), linetype = "dashed", color = "darkred") +
+  labs(x = "Fitted values", y = "Studentized residuals", title = "Studentized residuals vs y-hat") +
+  theme_bw()
+
+qqPlot(model, main = "QQ Plot with Envelope")
+
+p6 <- ggplot(model, aes(x = seq_along(hatvalues(model)), y = hatvalues(model))) +
+  geom_point() +
+  labs(x = "Index", y = "Leverage", title = "Leverage") +
+  theme_bw()
+
+p7 <- ggplot(model, aes(x = seq_along(cooks.distance(model)), y = cooks.distance(model))) +
+  geom_point() +
+  labs(x = "Index", y = "Cook's distance", title = "Cook's Distance") +
+  theme_bw()
+
+p8 <- ggplot(model, aes(x = Geese_Data$Obs2, y = rstandard(model))) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Obs2", y = "Standardized residuals", title = "Standardized residuals vs x") +
+  theme_bw()
+
+# Arrange plots in a grid
+grid.arrange(p1, p2, p3, p4, p5, p8, ncol = 3)
+grid.arrange(p6, p7, ncol = 2)
+
+# Print summary of the model
+summary(model)
+
+# Check for influential points
+influential_points <- which(cooks.distance(model) > 4 / length(cooks.distance(model)))
+print(paste("Influential points:", paste(influential_points, collapse = ", ")))
+
+# Check for high leverage points
+high_leverage <- which(hatvalues(model) > 2 * mean(hatvalues(model)))
+print(paste("High leverage points:", paste(high_leverage, collapse = ", ")))
+
+# Check for outliers
+outliers <- which(abs(rstandard(model)) > 2)
+print(paste("Potential outliers:", paste(outliers, collapse = ", ")))
+```
+
+**The regression model of Photo on Obs1 shows mild violations of linearity, homoscedasticity, and normality assumptions. Points 28, 29, and 41 are definitely problematic, being potential outliers and influential points, with 28 and 29 also having high leverage. Depending on the findings of further analysis, better regression techniques or transformations might be considered to address the assumption violations.**
+
+## Statistical Consequences and Remedies
+
+Write down the statistical consequences of the assumptions that appear to be violated. Also write down what you would do to remedy the apparent violations. Be specific, but do not run new analyses.
+
+**The mild violations of linearity and homoscedasticity may lead to biased coefficient estimates and unreliable confidence intervals. The slight departure from normality could affect the validity of hypothesis tests and confidence intervals. To address this, I would consider applying a non-linear transformation (such as log or square root) to the response variable or predictor to improve linearity and stabilize variance. I would also investigate points 28, 29, and 41 for potential data errors or exceptional circumstances, and if no issues are found, consider using other regression techniques or weighted least squares to mitigate their influence on the model.**
+
+## Constant Variance Assumption
+
+We should really have given some thoughts to the problem first before fitting a model to the data (use your head before you use your hands). In particular, explain why the constant variance assumption is a dubious one, and explain why assuming that the variance increases with the mean makes more sense.
+
+**The constant variance assumption is doubtful for this dataset because we're dealing with count data (number of geese), where variability typically increases with the mean. In ecological studies, larger populations often exhibit greater fluctuations in size due to various environmental and demographic factors. Assuming the variance increases with the mean is more sensible for count data, as it aligns with the natural phenomenon where larger counts tend to have more variability. This is often modeled using distributions like Poisson.**
+
+## Data Distribution
+
+Also, do you think the data are normally distributed? This app https://www.geogebra.org/m/vt85cmqC might help. It shows the Poisson distribution for various values of the mean of the Poisson, and also a Normal distribution (with appropriate parameters) overlaid, when you click the button.
+
+**The data are unlikely to be normally distributed, given they represent count data (number of geese). Instead, a Poisson distribution is more appropriate for modeling count data, as it naturally accounts for the discrete nature of counts and the increasing variance with the mean.**
+
+## Square Root Transformation
+
+Moving forward, let's transform $Y$ by taking the square root. This transformation is known to stabilize the variance of data like the data we have here. For additional information, read Sheather section 3.3.1 and also check page 112.
+
+This transformation has also gotten rid of an other problem with the data. Which problem?
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+
+Geese_Data$Photo_sqrt <- sqrt(Geese_Data$Photo)
+Geese_Data$Obs1_sqrt <- sqrt(Geese_Data$Obs1)
+
+model_sqrt <- lm(Photo_sqrt ~ Obs1_sqrt, data = Geese_Data)
+
+summary(model_sqrt)
+
+# Reshape the data into a long format
+Geese_Data_long <- Geese_Data %>%
+  pivot_longer(cols = c(Photo, Photo_sqrt, Obs1, Obs1_sqrt),
+               names_to = "Variable",
+               values_to = "Value")
+
+# Create the plot
+ggplot(Geese_Data_long, aes(x = Value)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "white", color = "black") +
+  geom_density(color = "darkred", size = 1) +
+  facet_wrap(~ Variable, scales = "free", ncol = 2) +
+  theme_bw() +
+  labs(title = "Histograms and Density Plots of Original and Sqrt Transformed Variables",
+       x = "Value",
+       y = "Density") +
+  theme(strip.background = element_rect(fill = "darkgray"),
+        strip.text = element_text(face = "bold"))
+```
+
+**The square root transformation has reduced the skewness in the data distribution. This change makes the data more symmetrical and closer to a normal distribution, which is beneficial for many statistical analyses.**
+
+## Transformed Regression and Diagnostics
+
+In section 3.3.1, your book says "When both $Y$ and $X$ are measured in the same units then it is often natural to consider the same transformation for both $X$ and $Y$." (It would be a good idea to read that section again.) Remember the election example, where we did just that. So let's transform $X$ as well and then compute the regression of $\sqrt{Y}$ on $\sqrt{X}$.
+
+Produce all model and case diagnostics and determine which assumptions, if any, appear to be violated. Also report problematic points, if any. Note: Points will not be given back if you fail to produce all the requested diagnostic plots. Make sure to put an envelope around the QQplot.
+
+```{r, echo= FALSE}
+#| warning: false
+#| message: false
+library(tidyverse)
+library(car)
+library(patchwork)
+
+Geese_Data <- read_table("/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW2/snowgeese.txt")
+
+# Original model
+model <- lm(Photo ~ Obs1, data = Geese_Data)
+
+# Square root transformed model
+Geese_Data$Photo_sqrt <- sqrt(Geese_Data$Photo)
+Geese_Data$Obs1_sqrt <- sqrt(Geese_Data$Obs1)
+model_sqrt <- lm(Photo_sqrt ~ Obs1_sqrt, data = Geese_Data)
+
+# Function to create diagnostic plots
+create_diagnostic_plots <- function(model, data, title_prefix) {
+  p1 <- ggplot(model, aes(x = .fitted, y = data[[as.character(model$terms[[2]])]])) +
+    geom_point() +
+    geom_abline(intercept = 0, slope = 1, color = "darkred") +
+    labs(x = "Fitted values", y = "Observed values", title = paste("y vs y-hat")) +
+    theme_bw()
+  
+  p2 <- ggplot(model, aes(x = .fitted, y = rstandard(model))) +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    labs(x = "Fitted values", y = "Standardized residuals", title = paste("Standardized residuals vs y-hat")) +
+    theme_bw()
+  
+  p3 <- ggplot(model, aes(x = data[[as.character(model$terms[[3]])]], y = rstandard(model))) +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    labs(x = as.character(model$terms[[3]]), y = "Standardized residuals", title = paste("Standardized residuals vs x")) +
+    theme_bw()
+  
+  p4 <- ggplot(model, aes(x = .fitted, y = sqrt(abs(rstandard(model))))) +
+    geom_point() +
+    labs(x = "Fitted values", y = "√|Standardized residuals|", title = paste("√|Standardized residuals| vs y-hat")) +
+    theme_bw()
+  
+  return(list(p1, p2, p3, p4))
+}
+
+# Create plots for both models
+plots_original <- create_diagnostic_plots(model, Geese_Data, "Original: ")
+plots_sqrt <- create_diagnostic_plots(model_sqrt, Geese_Data, "Sqrt Transformed: ")
+
+# Arrange plots using patchwork
+original_plot <- (plots_original[[1]] + plots_original[[2]]) / (plots_original[[3]] + plots_original[[4]]) +
+  plot_annotation(title = "Diagnostic Plots for Original Model")
+
+sqrt_plot <- (plots_sqrt[[1]] + plots_sqrt[[2]]) / (plots_sqrt[[3]] + plots_sqrt[[4]]) +
+  plot_annotation(title = "Diagnostic Plots for Square Root Transformed Model")
+
+# Display the plots
+print(original_plot)
+print(sqrt_plot)
+
+# QQ plots with envelopes
+qqPlot(model, main = "QQ Plot with Envelope (Original)")
+qqPlot(model_sqrt, main = "QQ Plot with Envelope (Sqrt Transformed)")
+
+# Print summaries of the models
+cat("Summary of Original Model:\n")
+print(summary(model))
+cat("\nSummary of Square Root Transformed Model:\n")
+print(summary(model_sqrt))
+
+# Function to check for influential points, high leverage points, and outliers
+check_diagnostics <- function(model) {
+  influential_points <- which(cooks.distance(model) > 4 / length(cooks.distance(model)))
+  high_leverage <- which(hatvalues(model) > 2 * mean(hatvalues(model)))
+  outliers <- which(abs(rstandard(model)) > 2)
+  
+  cat("Influential points:", paste(influential_points, collapse = ", "), "\n")
+  cat("High leverage points:", paste(high_leverage, collapse = ", "), "\n")
+  cat("Potential outliers:", paste(outliers, collapse = ", "), "\n")
+}
+
+# Check diagnostics for both models
+cat("\nDiagnostics for Original Model:\n")
+check_diagnostics(model)
+cat("\nDiagnostics for Square Root Transformed Model:\n")
+check_diagnostics(model_sqrt)
+
+```
+
+**The square root transformation has improved the model's adherence to assumptions, particularly in terms of linearity and normality of residuals. There are still a few minor violations of homoscedasticity, such as the slight pattern in the residual plots. There are several problematic points (28, 29, 37, 40, 41) have been identified as influential, high leverage, or potential outliers, which warrant further investigation. Overall, while the transformed model performs better than the original.**
+
+## Model Preference
+
+Which model do you prefer? Explain.
+
+**The square root transformed model is preferable to the original model. It demonstrates improved linearity, better homoscedasticity, and more normally distributed residuals as seen in the diagnostic plots. While both models have some problematic points, the transformed model addresses several issues present in the original, making it a more reliable choice for analysis and prediction.**
+
+## Log Transformation Comparison
+
+For that sort of data, I often take the log transformation instead of the square root, as I did several times in class. Does it matter much here?
+
+To help answer that question, produce side by side histograms of $Y$,$\sqrt{Y}$ and $\log{Y}$, and also plot $\sqrt{Y}$ vs $\log{Y}$, and give your assessment.
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+Geese_Data$Y_sqrt <- sqrt(Geese_Data$Photo)
+Geese_Data$Y_log <- log(Geese_Data$Photo)
+
+# Histograms
+p1 <- ggplot(Geese_Data, aes(x = Photo)) +
+  geom_histogram(bins = 30, fill = "darkred", color = "black") +
+  labs(title = "Histogram of Y", x = "Y", y = "Count") +
+  theme_bw()
+
+p2 <- ggplot(Geese_Data, aes(x = Y_sqrt)) +
+  geom_histogram(bins = 30, fill = "darkred", color = "black") +
+  labs(title = "Histogram of √Y", x = "√Y", y = "Count") +
+  theme_bw()
+
+p3 <- ggplot(Geese_Data, aes(x = Y_log)) +
+  geom_histogram(bins = 30, fill = "darkred", color = "black") +
+  labs(title = "Histogram of log(Y)", x = "log(Y)", y = "Count") +
+  theme_bw()
+
+# √Y vs log(Y) plot
+p4 <- ggplot(Geese_Data, aes(x = Y_log, y = Y_sqrt)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "darkred") +
+  labs(title = "√Y vs log(Y)", x = "log(Y)", y = "√Y") +
+  theme_bw()
+
+# Combine plots
+combined_plot <- (p1 + p2 + p3)
+print(combined_plot)
+print(p4)
+```
+
+**Based on the plots, the choice between square root and log transformations doesn't matter much for this dataset. Both transformations effectively reduce the right skew, and their strong linear relationship in the √Y vs log(Y) plot suggests they would have similar impacts on the model's performance.**
+
+# Question 3: Krunnit Islands Archipelago Study
+
+In a study of the Krunnit Islands archipelago, researchers presented results of extensive bird surveys taken over four decades. They visited each island several times, cataloguing species.
+
+If a species was found on a specific island in 1949, it was considered to be at risk of extinction for the next survey of the island in 1959. If it was not found in 1959, it was counted as an extinction, even though it might reappear later. The following data provides island size, number of species at risk to become extinct and number of extinctions.
+
+Format: A data frame with 18 observations on the following 4 variables.
+
+Island: Name of Island
+
+Area: Area of Island
+
+AtRisk: Number of species at risk in 1949
+
+Extinct: Number of extinctions in 1959
+
+Scientists agree that preserving certain habitats in their natural states is necessary to slow the accelerating rate of species extinctions. But they are divided on how to construct such reserves. Given a finite amount of available land, is it better to have many small reserves or a few large ones? Central to the debate on this question are observational studies of what has happened in island archipelagos, where nearly the same fauna tries to survive on islands of different sizes.
+
+Source: Ramsey, F.L. and Schafer, D.W. (2013). The Statistical Sleuth: A Course in Methods of Data Analysis (3rd ed), Cengage Learning.
+
+## Question of Interest
+
+State the question of interest in your own words.
+
+**The question is whether it's more effective to have numerous small wildlife reserves or fewer large ones to prevent species extinctions.**
+
+## Response Variable and Covariates
+
+What response variable and covariate(s) do you want to use to answer this question?
+
+**The response variable is the extinction rate (Extinct/AtRisk). The covariate is the island area (Area).**
+
+## Gaussian Distribution and Constant Variance
+
+Do you believe that your response variable is Gaussian with constant variance? Explain carefully.
+
+**The extinction rate is likely not Gaussian with constant variance. It's a proportion bounded between 0 and 1, suggesting a beta distribution might be more appropriate.**
+
+## Model Fitting and Interpretation
+
+Explain which model you will fit and describe characteristics of the fitted model that will make you believe that it is better to have many small reserves rather than a few large ones?
+
+**I would fit a generalized linear model with a logit link function, using Area as the predictor and Extinct/AtRisk as the response. If the coefficient for Area is positive, it would suggest that larger reserves are more effective in preventing extinctions.**
+
+# Question 4: Salary/Education/Experience/Management Example
+
+Back to the (Salary/Education level/Years of experience/Management) example of class. Determine if each question below can be answered by comparing two nested models using a partial F-test, and specify which covariates are included in and excluded from each model.
+
+If the question cannot be answered using a partial F-test, explain why and what test you would conduct instead. The available covariates are: Intercept, D1, D2, M, D1.M, D2.M, Exp, D1.Exp, D2.Exp, M.Exp, D1.M.Exp and D2.M.Exp. (We showed in class that all interactions involving D1\*D2 are equal to 0, so we do not include them as possible covariates.)
+
+You do not need to perform any of these tests. You only need to specify how you would perform them.
+
+## Do mean starting salaries depend on education level?
+
+**A partial F-test is appropriate because we're comparing nested models to assess the effect of education level (D1, D2) on starting salaries.**
+
+## Do the average starting salary of high school graduates depend on the type of job: management versus non management?
+
+**A partial F-test isn't suitable because we're only interested in one coefficient (M) for high school graduates. A t-test on this coefficient directly answers the question.**
+
+## Do the yearly salary increments depend on education level?
+
+**A partial F-test works here as we're comparing nested models to determine if the interaction between education level and experience (D1.Exp, D2.Exp) significantly improves the model.**
+
+## Does the average salary of advanced graduates increase faster with years of experience than graduates with less advanced degrees?
+
+**A partial F-test could potentially determine if these interactions significantly improve the model, which would possibly indicate differing salary growth rates by education level.**
+
+**However, by testing to see if the models are different, we aren't testing if the slopes are different, which is what the question is asking (rate). To do this, we will have to look at the $\beta$'s specifically in the whole model.**
+
+# Question 5: Chemical Agents and Cloth Strength
+
+A chemist wishes to test the effect of 4 chemical agents on the strength of a particular type of cloth. Because there might be variability from one bolt of cloth to another (bolt = a length of woven goods, especially as it comes on a roll from the loom), the chemist decides to use a randomized block design: the chemist selects 5 bolts of the same cloth and applies all 4 chemicals in random order to each bolt (she applies the different agents to different parts of the cloth). The resulting tensile strengths is given in the table:
+
+```{r, echo=FALSE}
+
+bolt_data <- data.frame(
+  Chemical = c(1, 2, 3, 4),
+  `Bolt 1` = c(73, 73, 75, 73),
+  `Bolt 2` = c(68, 67, 68, 71),
+  `Bolt 3` = c(74, 75, 78, 75),
+  `Bolt 4` = c(71, 72, 73, 75),
+  `Bolt 5` = c(67, 70, 68, 69)
+)
+
+print(bolt_data)
+```
+
+Notes: so far, all the data we have used in the class have been observational data, for which we could only report association results, not causation result. This is a designed randomized experiment, so regression effects are causal effects.
+
+## Response Variable and Covariates
+
+What is the response variable? What are the covariates? Are the covariates continuous? Do you have reasons to think that Y may not be Gaussian with constant variance?
+
+**The response variable is tensile strength because it's the outcome we're measuring. Chemical agent and bolt are covariates because they're the factors we're manipulating or controlling. They're categorical because they have distinct levels rather than continuous values. There's no obvious reason to suspect non-Gaussian distribution or non-constant variance for tensile strength, as material properties often follow normal distributions.**
+
+## Leverage Points in Designed Experiments
+
+In designed experiments, there are typically no leverage points. Explain how you can see that this is true in this experiment.
+
+**Leverage points typically occur when some observations have extreme or unusual values for predictors. In this balanced experiment, each combination of bolt and chemical occurs exactly once, so no single observation can have unusual predictor values compared to others. This uniform distribution of treatments prevents any observation from having undue influence on the model.**
+
+## Interaction Plot
+
+Draw an interaction plot of these data, with Bolt on the x-axis and using different line types/colors for Chemical. Does it look like we have main effects of Bolt and Chemical, interactions between Bolt and Chemical? Explain how you see that. Are you sure of your answer? Explain.
+
+```{r, echo=FALSE}
+data_long <- pivot_longer(bolt_data, cols = starts_with("Bolt"), 
+                          names_to = "Bolt", values_to = "Strength")
+
+# Create the interaction plot
+ggplot(data_long, aes(x = Chemical, y = Strength, color = Bolt, group = Bolt)) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  labs(title = "Interaction Plot: Chemical vs Bolt",
+       x = "Chemical", y = "Tensile Strength") +
+  scale_color_brewer(palette = "Set1")
+```
+
+**The interaction plot suggests main effects for both Bolt and Chemical, evident from non-parallel lines and varying y-intercepts. Possible interactions are indicated by line crossings, but single observations per combination limit certainty. The plot reveals variability in tensile strength across Bolts and Chemicals, but patterns are inconsistent, necessitating further statistical analysis for definitive conclusions.**
+
+## Linear Model with Main Effects
+
+If you were to fit a linear model with the two predictors bolt and chemical (they are called the main effects), without interactions, how many beta's would you estimate? (Do not fit the model. I am only interested in the number of beta's in the model.) It may be useful to write down the model to answer this question. Check out how we proceeded in the Salary/Education level/Years of experience/Management example.
+
+**A model with main effects would have 8 beta coefficients: intercept, 4 for chemical, and 3 for bolt.**
+
+**Model:** $Y$ = $\beta_0$ + $\beta_1$$D_1$ + $\beta_2$$D_2$ + $\beta_3$$D_3$ + $\beta_4$$B_1$ + $\beta_5$$B_2$ + $\beta_6$$B_3$ + $\beta_7$$B_4$
+
+## Linear Model with Interactions
+
+If you were to fit a linear model with the two predictors bolt and chemical and their interactions, how many beta's would you estimate? (Do not fit the model. I am only interested in the number of beta's in the model.)
+
+**A model with main effects and interactions would have 20 beta coefficients: intercept, 4 for chemical, 4 for bolt, and 11 for interactions.**
+
+## Estimated Mean Tensile Strengths
+
+Without running this regression, write the estimated mean tensil strengths, $\hat{E}$($Y$\]\| $bold$, $chemical$), for each combination of bolt and chemical, in terms of the beta's? (Remember the table of interactions and slopes you all filled out on the board in class for the Salary/Education level/Years of experience/Management example.)
+
+$\hat{E}$($Y$\| $bold$, $chemical$) = $\beta_0$ + $\beta_i$$chemical_i$ + $\beta_j$$bolt_j$ + $\beta_k$$chemical_k, bolt_k$
+
+## Numerical Values for Estimated Mean Tensile Strengths
+
+Without running this regression, what are the numerical values for the estimated mean tensil strengths, $\hat{E}$($Y$\]\| $bold$, $chemical$), for each combination of bolt and chemical?
+
+**In a saturated model like this, with as many parameters as data points, the predicted values exactly match the observed data. This perfect fit occurs because we have one unique parameter for each observation.**
+
+## RSS and Residual Degrees of Freedom
+
+Without running this regression, what is the RSS and the residual degrees of freedom?
+
+In the rest of the problem, assume that there are no interactions between bolt and chemical.
+
+**RSS (Residual Sum of Squares) is 0 and residual degrees of freedom is 0 because the model perfectly fits the data. There's no leftover variability to explain, and no remaining degrees of freedom after fitting all parameters.**
+
+## Significance of Bolt Effect
+
+What would it mean for bolt to have a significant effect on the outcome $Y$, in the context of the problem?
+
+**A significant effect of bolt would indicate that the inherent properties of different cloth bolts significantly influence tensile strength, regardless of chemical treatment. This could be due to variations in the manufacturing process or raw materials used for different bolts.**
+
+## Data Analysis and Conclusions
+
+Analyze the data and write your conclusions about the effect of the 4 chemicals on tensile strength, and on the effect of Bolt. (Always use the APA format when stating your conclusions. You can and a page explaining that format in the handout section of the canvas page.) Include your residuals analysis and comment on the deficiencies of your model, if any.
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+# Load required libraries
+library(ggplot2)
+library(gridExtra)
+library(car)
+
+# Create the data frame
+bolt_data <- data.frame(
+  Chemical = rep(1:4, each = 5),
+  Bolt = rep(1:5, times = 4),
+  Strength = c(73,68,74,71,67, 73,67,75,72,70, 75,68,78,73,68, 73,71,75,75,69)
+)
+
+# Fit the model
+model <- lm(Strength ~ as.factor(Chemical) + as.factor(Bolt), data = bolt_data)
+
+# Create plots
+p1 <- ggplot(model, aes(x = .fitted, y = bolt_data$Strength)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "darkred") +
+  labs(x = "Fitted values", y = "Observed values", title = "y vs y-hat") +
+  theme_bw()
+
+p2 <- ggplot(model, aes(x = .fitted, y = rstandard(model))) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Fitted values", y = "Standardized residuals", title = "Standardized residuals vs y-hat") +
+  theme_bw()
+
+p3 <- ggplot(model, aes(x = bolt_data$Chemical, y = rstandard(model))) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Chemical", y = "Standardized residuals", title = "Standardized residuals vs Chemical") +
+  theme_bw()
+
+p4 <- ggplot(model, aes(x = .fitted, y = sqrt(abs(rstandard(model))))) +
+  geom_point() +
+  labs(x = "Fitted values", y = "√|Standardized residuals|", title = "√|Standardized residuals| vs y-hat") +
+  theme_bw()
+
+p5 <- ggplot(model, aes(x = .fitted, y = rstudent(model))) +
+  geom_point() +
+  geom_hline(yintercept = c(qt(0.05/nrow(bolt_data), df.residual(model), lower.tail = TRUE), 
+                            -qt(0.05/nrow(bolt_data), df.residual(model), lower.tail = TRUE)), 
+             linetype = "dashed", color = "darkred") +
+  labs(x = "Fitted values", y = "Studentized residuals", title = "Studentized residuals vs y-hat") +
+  theme_bw()
+
+p6 <- ggplot(model, aes(x = seq_along(hatvalues(model)), y = hatvalues(model))) +
+  geom_point() +
+  labs(x = "Index", y = "Leverage", title = "Leverage") +
+  theme_bw()
+
+p7 <- ggplot(model, aes(x = seq_along(cooks.distance(model)), y = cooks.distance(model))) +
+  geom_point() +
+  labs(x = "Index", y = "Cook's distance", title = "Cook's Distance") +
+  theme_bw()
+
+p8 <- ggplot(model, aes(x = bolt_data$Bolt, y = rstandard(model))) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Bolt", y = "Standardized residuals", title = "Standardized residuals vs Bolt") +
+  theme_bw()
+
+# Arrange plots in a grid
+grid.arrange(p1, p2, p3, p4, p5, p8, ncol = 3)
+grid.arrange(p6, p7, ncol = 2)
+
+# QQ Plot with Envelope
+qqPlot(model, main = "QQ Plot with Envelope")
+
+# Print summary of the model
+summary_result <- summary(model)
+print(summary_result)
+
+# Check for influential points
+influential_points <- which(cooks.distance(model) > 4 / length(cooks.distance(model)))
+print(paste("Influential points:", paste(influential_points, collapse = ", ")))
+
+# Check for high leverage points
+high_leverage <- which(hatvalues(model) > 2 * mean(hatvalues(model)))
+print(paste("High leverage points:", paste(high_leverage, collapse = ", ")))
+
+# Check for outliers
+outliers <- which(abs(rstandard(model)) > 2)
+print(paste("Potential outliers:", paste(outliers, collapse = ", ")))
+
+# ANOVA
+anova_result <- anova(model)
+print(anova_result)
+```
+
+**A two-way ANOVA revealed a significant main effect of Bolt on tensile strength, F(4, 12) = 21.61, p \< .001. However, the main effect of Chemical was not significant, F(3, 12) = 2.38, p = .121. These results suggest that while the type of bolt significantly influences the tensile strength of the cloth, the effect of different chemical treatments is less clear and requires further investigation.**
+
+# Question 6: Project 1 Part 2 - Rail Trails and House Values
+
+Project 1 part 2. Last week, we introduced the research goal: Determine if houses closer to rail trails have higher values, or if rail trails cause people to be willing to pay more for houses. You tried to describe the data you want to collect to answer the question.
+
+The data you can get is probably different from what you wanted.
+
+The data you will use comes from an analysis of houses sold in Northampton, Massachusetts in 2007. A rail trail opened near Northampton in 1984, allowing a comparison of homes near the trail and those farther away. Because the homes were sold, we have their actual sale price saying how much someone paid for them. We also have values estimated by Zillow, which produces estimates of values based on sale prices, prices of nearby homes, and features of the home; Zillows estimates are updated regularly even if the house does not sell.
+
+The data includes:
+
+-   Zillows value estimates for 1998, 2007, 2011, and 2014 (raw and adjusted for inflation)
+-   Distance from the house to the nearest access to the rail trail
+-   Size of the property the house is on
+-   Number of bedrooms in the home
+-   How bike-friendly the area is, scored from 0 to 100 (bike-friendly means its easy to bike, because the terrain is at and there are bike lanes) 
+- How walkable the area is, also scored from 0 to 100, measuring how easy it is to do daily tasks without a car (presumably people using rail trails regularly would like this) 
+- Whether the house has a garage for parking cars
+- Size of the homes interior finished space 
+- ZIP code, latitude, longitude, and other geographic data
+
+Your task this week: Plan an analysis of this data. Specifically:
+
+## Data Relationships
+
+What relationships would you look for in this data to answer the research question? Be specific about the response variable(s) and predictors you could use.
+
+**To answer the research question, I would primarily focus on the relationship between house sale prices as the response variable and the distance to the nearest rail trail access as the key predictor. This direct comparison would help determine if proximity to rail trails correlates with higher home values. Additionally, I would incorporate other relevant predictors to control for their effects on housing prices. These would include property size, number of bedrooms, the bike-friendliness score, walkability score, and interior finished space size. By including these variables, I can better isolate the impact of rail trail proximity on house prices.**
+
+## Model Interpretation
+
+Once you fit a model, what will you look for? For example, you could test if a particular coefficient is 0, you could measure the models error in predicting the response, you might want to know if a coefficient is positive or negative... what specific outcomes would help answer your research questions?
+
+**When interpreting the model results, several key aspects would be crucial for answering our research questions. I would look for a negative coefficient for the distance to rail trail variable, as this would indicate that houses closer to the trail (smaller distance) have higher prices. The statistical significance of this coefficient would be important to ensure the relationship isn't due to random chance. The magnitude of this coefficient would quantify the price impact per unit of distance from the trail, providing a tangible measure of the trail's influence on home values. I would examine the overall model fit, and assess how well these factors collectively explain variations in house prices.**
+
+## Analysis Limitations
+
+Will your analysis be limited in any way because the data is insuicient, perhaps because it contains the wrong variables or because its observational? Be specific about what limits your analysis has.
+
+**This analysis faces several limitations. The observational nature of the data prevents establishing causality between rail trails and house prices. Important price factors like house condition or school district quality may be missing from the dataset. Focusing on Northampton alone may reduce the generalizability of findings to other areas. These constraints demonstrate the need for thoughtful interpretation of results.**
+
+Answer each of these questions in a few sentences. You can give diagrams or model
+formulas, if theyd be helpful.

@@ -1,0 +1,436 @@
+---
+title: "36-613 Homework 2"
+author: 
+- "Nicco Jacimovic"
+date: 2024-09-13
+format:
+  pdf:
+    colorlinks: true
+---
+
+# Problem 1: Plotting z_α vs t_n,α (15 points)
+
+***Plot z_α versus t_n,α for α ∈ \[0, 5%\], for n = 5, 10, 20, 100 (do not plot α vs quantiles; plot quantiles vs quantiles). Draw the 4 curves (one curve per value of n) on the same plot and overlay the (0,1) line. Feel free to try other values of n.***
+
+```{r, echo=FALSE}
+library(ggplot2)
+library(styler)
+alpha_range <- seq(0.0001, 0.05, length.out = 1000) # Avoid 0 to prevent division by zero
+
+n_values <- c(5, 10, 20, 100)
+dfs <- n_values - 1
+
+z_scores <- qnorm(1 - alpha_range / 2)
+
+plot_data <- data.frame()
+
+for (i in seq_along(dfs)) {
+  t_quantiles <- qt(1 - alpha_range / 2, df = dfs[i])
+  temp_data <- data.frame(
+    z_score = z_scores,
+    t_quantile = t_quantiles,
+    n = rep(n_values[i], length(z_scores))
+  )
+  plot_data <- rbind(plot_data, temp_data)
+}
+
+ggplot(plot_data, aes(x = z_score, y = t_quantile, color = factor(n))) +
+  geom_line() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "black") +
+  scale_color_discrete(name = "n") +
+  labs(
+    x = expression(z[alpha]),
+    y = expression(t[n, alpha]),
+    title = expression(t[n, alpha] ~ "vs" ~ z[alpha] ~ "for" ~ alpha ~ "∈ [0, 5%]")
+  ) +
+  coord_fixed(ratio = 1, xlim = c(0, 10), ylim = c(0, 10)) +
+  theme_bw() +
+  theme(legend.position = "right")
+```
+
+**For what sample sizes do you think it is OK to replace t quantiles with z quantiles?**
+
+*Generally speaking, using z-quantiles instead of t-quantiles is acceptable for sample sizes of 30 or greater in most practical applications. For higher precision, especially with small significance levels (α), it's advisable to use t-quantiles until the sample size reaches 50 or even 100. The difference between t and z quantiles becomes negligible (less than 2%) for sample sizes of 100 or more across common significance levels.*
+
+**In what contexts is this interesting?**
+
+*The comparison between t and z quantiles is crucial in statistical inference. It guides decisions on which distribution to use for hypothesis testing and confidence intervals. This knowledge is valuable in research design, helping determine appropriate sample sizes. It's also when sample sizes vary widely.*
+
+# Problem 2: Deviations from the mean (20 points)
+
+***The simple linear regression model consists of the mean function and the variance function:***
+
+*E(Y\|X = x) = B_0 + B_1x* 
+
+*Var(Y\|X = x) = o^2*
+
+***What is the meaning of B_0?***
+
+*B_0 is the intercept of the regression model.*
+
+***In particular, in the SAT dataset, what is the meaning of the intercept? For this particular dataset, do you think a reader would be interested in your mentioning in a report the estimate of B_0 and a confidence interval? Explain.***
+
+*The intercept in this SAT dataset represents the predicted SAT score when all other variables are zero, which has no practical interpretation given the nature of the data. With a value of -94.66 and a high p-value of 0.66, the intercept is neither meaningful nor statistically significant. In a report, readers would likely find more value in focusing on the statistically significant predictors (years of education, state expenditure, and student rank) that have practical interpretations. Instead of reporting the intercept and its confidence interval, it would be more informative to discuss these significant factors and their impacts on SAT scores.*
+
+***Sometimes it is convenient to write the model in a different form. Taking equation (1), adding B_1x̄ −B_1x̄ (which equals zero) to the right-hand side, and combining terms, check that we can write:***
+
+**y_i = a + B_1(x_i − x̄) + e_i**
+
+***where a = B_0 + B_1x̄. Show your work. This is called the deviations from the sample average form for simple regression.***
+
+*Starting with the original simple regression model:*
+
+*y_i = B_0 + B_1x_i + e_i*
+
+*Now, let's add B_1x̄ -B_1 to the right side:*
+
+*y_i = B_0 + B_1x_i + (B_1x̄ - B_1x̄) + e_i*
+
+*Rearranging the terms:*
+
+*y_i = B_0 + B_1x_i - B_1x̄ + B_1x̄ + e_i*
+
+*Factoring out B_1:*
+
+*y_i = B_0 + B_1(x_i - x̄) + B_1x̄ + e_i*
+
+*Combining B_0 and B_1x̄:*
+
+*y_i = (B_0 + B_1x̄) + B_1(x_i - x̄) + e_i*
+
+*Now, let a = B_0 + B_1x̄:*
+
+*y_i = a + B_1(x_i - x̄) + e_i*
+
+***What is the meaning of a?***
+
+*a represents the predicted value of y_i when x_i is equal to its mean (x̄). This is because when x_i = x̄, the term (x_i - x̄) becomes zero, leaving only a in the equation. a can be interpreted as the average value of y when x is at its average value. This interpretation is often more intuitive and practically useful than the original intercept B_0, especially when x = 0 is not meaningful for the data.*
+
+# Problem 3: Faculty Salaries Study (30 points)
+
+***In a study of faculty salaries in a small college in the Midwest, a linear regression model was fit, giving the fitted mean function:***
+
+**r̂(Sex) = E(Salary\|Sex) = 24697 − 3340S**
+
+***where Sex=1 if the faculty member was female and zero if male. The response Salary is measured in dollars (the data are from the 1970s).***
+
+## A (5 points)
+
+***Give a sentence that describes the meaning of the two estimated coefficients in the context of the current problem.***
+
+*The model estimates that male faculty members have an average salary of $24,697, while female faculty members are predicted to earn $3,340 less on average, with an estimated salary of $21,357.*
+
+## B (5 points)
+
+**What is the mean salary for men? For women?**
+
+*For men (Sex = 0):*
+*r̂(0) = 24697 - 3340(0) = 24697*
+
+*For women (Sex = 1):*
+*r̂(1) = 24697 - 3340(1) = 24697 - 3340 = 21357*
+
+*The mean salary for men is $24,697. The mean salary for women is $21,357.*
+
+## C (5 points)
+
+***An alternative mean function fit to these data with an additional term, Years, the number of years employed at this college, gives the estimated mean function:***
+
+**E(Salary\|Sex, Years) = 18065 + 201Sex + 759Years**
+
+***The coefficient for Sex has changed signs. Explain how this could happen.***
+
+*The sign change for the Sex coefficient could occur due to confounding between Sex and Years of employment. It's possible that male faculty in this dataset had, on average, more years of employment than female faculty, which wasn't accounted for in the original model but is now captured in the new model.*
+
+## D (5 points)
+
+***What is the mean salary for men as a function of Years? What is the mean salary for women as a function of Years?***
+
+*For men (Sex = 0):*
+*Mean salary = 18065 + 759(Years)*
+
+*For women (Sex = 1):*
+*Mean salary = 18266 + 759(Years)*
+
+## E (5 points)
+
+***Do men and women benefit from the same salary increases with each additional year of experience?***
+
+*Yes, men and women benefit from the same salary increase with each additional year of experience. The model shows that both genders receive a $759 increase in salary for each additional year of employment, regardless of their sex.*
+
+## F (5 points)
+
+***Describe the meaning of each regression coefficient.***
+
+*The regression coefficients in the model E(Salary|Sex, Years) = 18065 + 201Sex + 759Years can be interpreted as follows:*
+
+*18065: The base salary in dollars for a new hire (0 years) who is male (Sex=0).*
+
+*201: The additional dollars in salary for female faculty compared to male faculty, holding years of experience constant.*
+
+*759: The increase in dollars to salary for each additional year of employment, regardless of sex.*
+
+# Problem 4: ISLR Second Ed. p. 121-122, #3 (15 points)
+
+***Suppose we have a data set with five predictors, X 1 = GPA, X 2 = IQ, X 3 = Level (1 for College and 0 for High School), X 4 = Interaction between GPA and IQ, and X 5 = Interaction between GPA and Level. The response is starting salary after graduation (in thousands of dollars). Suppose we use least squares to fit the model, and get ˆβ 0 = 50, ˆβ 1 = 20, ˆβ 2 = 0.07, ˆβ 3 = 35, ˆβ 4 = 0.01, ˆβ 5 = −10.***
+
+## Part A
+
+***Which answer is correct, and why?***
+
+**Options**
+
+*I) For a fixed value of IQ and GPA, high school graduates earn more, on average, than college graduates.*
+
+*II) For a fixed value of IQ and GPA, college graduates earn more, on average, than high school graduates.*
+
+*III) For a fixed value of IQ and GPA, high school graduates earn more, on average, than college graduates provided that the GPA is high enough.*
+
+*IV) For a fixed value of IQ and GPA, college graduates earn more, on average, than high school graduates provided that the GPA is high enough.*
+
+***Answer***
+
+*The effect of education level on salary in this model depends on GPA, as indicated by the interaction term. For GPAs below 3.5, college graduates earn more on average than high school graduates. However, this relationship reverses for GPAs above 3.5, where high school graduates earn more on average. This counterintuitive result is due to the negative interaction between GPA and education level in the model. Therefore, statement III is correct: "For a fixed value of IQ and GPA, high school graduates earn more, on average, than college graduates provided that the GPA is high enough."*
+
+## Part B
+***Predict the salary of a college graduate with IQ of 110 and a GPA of 4.0.***
+
+*Y = β₀ + β₁X₁ + β₂X₂ + β₃X₃ + β₄X₄ + β₅X₅*
+*Y = 50 + 20(4.0) + 0.07(110) + 35(1) + 0.01(4.0110) + (-10)(4.01)*
+*Y = 50 + 80 + 7.7 + 35 + 4.4 - 40*
+*Y = 137.1*
+*Predicted salary: $137,100*
+
+## Part C
+***True or false: Since the coefficient for the GPA/IQ interaction term is very small, there is very little evidence of an interaction effect. Justify your answer***
+
+*The statement is false. While the coefficient 0.01 appears small, we must consider the scale of GPA and IQ values. For high GPA and IQ scores, this interaction term could contribute thousands of dollars to the predicted salary, which is not negligible. To properly assess the importance of this interaction, we would need additional statistical information such as p-values or confidence intervals.*
+
+# Problem 5: Snow Geese Study (60 points)
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+library(tidyverse)
+Geese_Data <- read_table("/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW2/snowgeese.txt")
+```
+
+## A (5 points)
+
+***The objective is to check if human counts can be used in place of photo counts of the number of birds. What is the appropriate regression: Photo on Obs1 or Obs1 on Photo? Explain. (Ignore for the moment that we also have Obs2.)***
+
+*The appropriate regression for this scenario is Obs1 on Photo, not Photo on Obs1. This choice aligns with the objective of checking if human counts can substitute for photo counts, assuming photo counts are more accurate.*
+
+## B (10 points)
+
+***Write up an EDA for the response variable and the covariates. Provide histograms of the 3 variables and scatterplots of all pairs of variables. Note general features of the variables (mean, spread skewness) and interesting features (bimodal, ...; outliers). Comment on the direction (positive/negative) and strength of the relationships between variables.***
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+library(ggplot2)
+library(gridExtra)
+
+ggplot(Geese_Data, aes(x = Photo)) +
+  geom_histogram(binwidth = 5, fill = "darkblue", color = "black") +
+  labs(title = "Histogram of Photo Counts", x = "Photo Count", y = "Frequency") +
+  theme_bw()
+
+ggplot(Geese_Data, aes(x = Obs1)) +
+  geom_histogram(binwidth = 5, fill = "darkgrey", color = "black") +
+  labs(title = "Histogram of Observer 1 Counts", x = "Observer 1 Count", y = "Frequency") +
+  theme_bw()
+
+ggplot(Geese_Data, aes(x = Obs2)) +
+  geom_histogram(binwidth = 5, fill = "darkred", color = "black") +
+  labs(title = "Histogram of Observer 2 Counts", x = "Observer 2 Count", y = "Frequency") +
+  theme_bw()
+
+ggplot(Geese_Data, aes(x = Photo, y = Obs1)) +
+  geom_point() +
+  labs(title = "Photo vs Observer 1", x = "Photo Count", y = "Observer 1 Count") +
+  theme_bw()
+
+ggplot(Geese_Data, aes(x = Photo, y = Obs2)) +
+  geom_point() +
+  labs(title = "Photo vs Observer 2", x = "Photo Count", y = "Observer 2 Count") +
+  theme_bw()
+
+ggplot(Geese_Data, aes(x = Obs1, y = Obs2)) +
+  geom_point() +
+  labs(title = "Observer 1 vs Observer 2", x = "Observer 1 Count", y = "Observer 2 Count") +
+  theme_bw()
+
+summary_stats <- summary(Geese_Data)
+print(summary_stats)
+
+cor_matrix <- cor(Geese_Data)
+print(cor_matrix)
+```
+
+*The geese count data shows strong positive correlations between photo counts and both observers' counts. All three variables exhibit right-skewed distributions, with most counts concentrated in the lower range and fewer occurrences of larger flock sizes. Both observers tend to slightly underestimate compared to photo counts, especially for larger flocks. The data reveals increasing variability in estimates as flock size grows, with larger discrepancies between observers and photo counts for bigger flocks. While human observers provide counts that correlate strongly with photo counts, there's a consistent tendency to underestimate.*
+
+## C (5 points)
+
+***Compute the regression of Photo on Obs1 using least squares and summarize your findings in 1 or 2 sentences.***
+
+```{r, echo=FALSE}
+model <- lm(Photo ~ Obs1, data = Geese_Data)
+summary(model)
+```
+
+*The least squares regression of Photo on Obs1 shows a strong positive relationship, with Observer 1's counts explaining approximately 75% of the variance in Photo counts (R-squared = 0.7503). The model indicates that for every one-unit increase in Observer 1's count, the Photo count increases by about 0.88 units, with a statistically significant relationship (p-value < 0.001).*
+
+## D (10 points)
+
+***Use an F-test to compare the model above to the model with mean function E(Photo \| Obs1) = Obs1. State in words the meaning of the hypotheses I am testing here, and give your conclusion from performing the test.***
+
+**In particular: is observer 1 reliable (you must define reliable)? Summarize your results.**
+
+```{r, echo=FALSE}
+model <- lm(Photo ~ Obs1, data = Geese_Data)
+restricted_model <- lm(Photo ~ 0 + Obs1, data = Geese_Data)
+
+anova_result <- anova(restricted_model, model)
+print(anova_result)
+```
+
+*The F-test results (F = 9.5702, p = 0.003469) indicate that including an intercept significantly improves the model fit. This suggests Observer 1's measurements have a systematic bias relative to the true values. Defining reliability as consistently proportional measurements without bias, we conclude that Observer 1 is not entirely reliable. While their observations are informative, they should be used cautiously, acknowledging the presence of this systematic bias.*
+
+## E (5 points)
+
+***Do both observers combined do a better job at predicting Photo than either observer separately? To answer this question, run the linear regression of Photo on both Obs1 and Obs2, and give your answer to the question of interest.***
+
+```{r, echo=FALSE}
+obs1_model <- lm(Photo ~ Obs1, data = Geese_Data)
+obs2_model <- lm(Photo ~ Obs2, data = Geese_Data)
+combined_model <- lm(Photo ~ Obs1 + Obs2, data = Geese_Data)
+
+calculate_rss <- function(model) {
+  rse <- summary(model)$sigma
+  n <- nobs(model)
+  p <- length(coef(model))
+  rss <- (rse^2) * (n - p - 1)
+  return(rss)
+}
+
+rss_obs1 <- calculate_rss(obs1_model)
+rss_obs2 <- calculate_rss(obs2_model)
+rss_combined <- calculate_rss(combined_model)
+
+cat("RSS (Obs1 only):", rss_obs1, "\n")
+cat("RSS (Obs2 only):", rss_obs2, "\n")
+cat("RSS (Obs1 and Obs2 combined):", rss_combined, "\n")
+```
+
+*Based on the Residual Sum of Squares (RSS) values provided, the combined model using both Obs1 and Obs2 performs better than either observer separately. The combined model has the lowest RSS (47769.23), compared to Obs1 alone (82818.32) and Obs2 alone (48185.31). This indicates that using both observers' data together provides a more accurate prediction of the Photo values than using either observer's data individually.*
+
+## F (5 points)
+
+***Do you feel comfortable interpreting the fitted β's of the model in (e)? Why is β_1 so different in the models in (c) and (e)? Explain.***
+
+```{r, echo=FALSE}
+model_c <- lm(Photo ~ Obs1, data = Geese_Data)
+model_e <- lm(Photo ~ Obs1 + Obs2, data = Geese_Data)
+
+cat("Model (c) coefficients:\n")
+print(coef(model_c))
+
+cat("\nModel (e) coefficients:\n")
+print(coef(model_e))
+
+library(ggplot2)
+
+ggplot(Geese_Data, aes(x = Obs1)) +
+  geom_point(aes(y = Photo, color = "Photo")) +
+  geom_point(aes(y = Obs2, color = "Obs2")) +
+  geom_smooth(aes(y = Photo, color = "Photo"), method = "lm", se = FALSE) +
+  geom_smooth(aes(y = Obs2, color = "Obs2"), method = "lm", se = FALSE) +
+  scale_color_manual(
+    values = c("Photo" = "red", "Obs2" = "blue"),
+    name = "Count Type",
+    labels = c("Photo", "Observer 2")
+  ) +
+  labs(
+    title = "Photo and Obs2 vs Obs1",
+    x = "Observer 1 Count", y = "Count"
+  ) +
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+*The difference in β_1 (coefficient for Obs1) between models (c) and (e) is due to multicollinearity between Obs1 and Obs2. In model (c), Obs1 alone captures all predictive power. In model (e), Obs1 and Obs2 likely share explanatory power, causing Obs1's coefficient to decrease dramatically. This suggests a strong correlation between the observers' counts, making individual coefficient interpretation in model (e) less reliable without further analysis of their relationship.*
+
+## G (10 points)
+
+***Create two new covariates: Average = (Obs1 + Obs2)/2 and Diff = Obs1 − Obs2. What do these covariates measure? Plot them against each other: are they strongly related?***
+
+```{r, echo=FALSE}
+Geese_Data$Average <- (Geese_Data$Obs1 + Geese_Data$Obs2) / 2
+Geese_Data$Diff <- Geese_Data$Obs1 - Geese_Data$Obs2
+
+ggplot(Geese_Data, aes(x = Average, y = Diff)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "darkred") +
+  labs(
+    title = "Scatter Plot of Average vs Diff",
+    x = "Average = (Obs1 + Obs2) / 2",
+    y = "Diff = Obs1 - Obs2"
+  ) +
+  theme_bw()
+
+correlation <- cor(Geese_Data$Average, Geese_Data$Diff)
+print(paste("Correlation between Average and Diff:", round(correlation, 3)))
+```
+
+*The new covariates Average and Diff measure the mean count between observers and the discrepancy in their counts, respectively. The scatter plot shows the relationship between these variables, with each point representing an observation. A lack of clear pattern in the plot would suggest that Average and Diff are not strongly related. The correlation coefficient provides a numerical measure of this relationship, with values closer to zero indicating a weaker association. If the trend line is nearly horizontal, it further supports the conclusion that there's no strong linear relationship between the average count and the difference in observers' counts.*
+
+## H (10 points)
+
+***Regress Photo on Average and Diff. Do you feel comfortable interpreting the fitted β's of this model? Explain.***
+
+```{r, echo=FALSE}
+model <- lm(Photo ~ Average + Diff, data = Geese_Data)
+
+summary(model)
+```
+
+*The regression of Photo on Average and Diff yields interpretable coefficients with both predictors being statistically significant. The Average coefficient (0.7914) shows a positive relationship with Photo count, while the Diff coefficient (-0.3052) indicates a negative association. This model explains a high proportion of variance in Photo (R-squared = 0.8559), suggesting that the combination of Average and Diff provides a good prediction of the actual photo count.*
+
+# Problem 6: COVID breakthrough rates in England (20 points)
+
+## A (10 points)
+
+***Write a one-paragraph abstract with exactly four sentences, one for each section of the paper: Introduction, Methods, Results and Discussion. Each sentence should highlight the main point of each section, and together the four sentences should tell the story of the paper. The last sentence should include the main result of the paper (or, if you need a fifth sentence to give the main result, that is fine too).***
+
+*This study aimed to identify risk factors for SARS-CoV-2 infection after COVID-19 vaccination and describe the characteristics of post-vaccination illness. The researchers conducted a prospective, community-based, nested case-control study using self-reported data from UK-based adult users of the COVID Symptom Study mobile phone app. The study found that frailty and living in deprived areas were associated with increased risk of post-vaccination infection, while vaccination reduced odds of severe illness. The findings suggest at-risk populations should be targeted to boost vaccine effectiveness and infection control. Additionaly, two vaccine doses approximately halved the odds of having symptoms for 28 days or more after infection, indicating a reduced risk of long COVID in fully vaccinated individuals.*
+
+## B (10 points)
+
+***Does the paper appropriately address each of the parts of an IMRAD paper as described in the "IMRAD: What goes into each section" pdf? (in the hw01 folder in the files area of our Canvas site.)***
+
+**For each section below, either say "yes this section has the right content", or say "no" and describe what is missing and/or what needs to be moved to another section of the paper or deleted.**
+
+### Introduction
+
+**Answer**
+
+*Yes, this section has the right content. It provides context, identifies gaps, and states objectives clearly.*
+
+### Methods
+
+**Answer**
+
+*Yes, this section has the right content. It describes the study design, data source, participant selection, variables, and analyses in sufficient detail.*
+
+### Results
+
+**Answer**
+
+*Yes, this section has the right content. It presents findings without interpretation, using appropriate statistical measures and visual aids.*
+
+### Discussion
+
+**Answer**
+
+*Yes, this section has the right content. It interprets results, discusses implications, addresses limitations, and suggests future research directions.*

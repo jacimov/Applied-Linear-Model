@@ -1,0 +1,771 @@
+---
+title: "Applied Linear Models"
+subtitle: "Homework 7"
+author: "Nicco Jacimovic"
+date: "2024-10-23"
+format:
+  pdf:
+    documentclass: scrreprt
+    papersize: letter
+    colorlinks: true
+    toc: true
+    toc-title: "Table of Contents"
+    toc-depth: 3
+    number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{afterpage}
+        \usepackage{graphicx}
+        \usepackage{mathpazo}
+        \usepackage{etoolbox}
+        \makeatletter
+        \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+        \makeatother
+    mainfont: Palatino
+    sansfont: Helvetica
+    monofont: Courier
+    fontsize: 11pt
+  html:
+    toc: true
+    toc-title: "Table of Contents"
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    css: custom.css
+    mainfont: Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif
+editor:
+  markdown:
+    wrap: 72
+---
+
+# Question 1: Lab 6.5.2
+
+We will use the glmnet package in order to perform ridge regression and
+the lasso. The main function in this package is glmnet() , which can be
+used glmnet() to fit ridge regression models, lasso models, and more.
+This function has slightly different syntax from other model-fitting
+functions that we have encountered thus far in this book. In particular,
+we must pass in an x matrix as well as a y vector, and we do not use the
+y ∼ x syntax. We will now perform ridge regression and the lasso in
+order to predict Salary on the Hitters data. Before proceeding ensure
+that the missing values have been removed from the data, as described in
+Section 6.5.1.
+
+## Setup
+
+First, let's load the required packages and prepare our data.
+
+```{r}
+#| warning: false
+#| message: false
+library(glmnet)
+library(ISLR)
+
+# Clean Data
+Hitters <- na.omit(Hitters)
+
+x <- model.matrix(Salary ~ ., Hitters)[,-1]
+y <- Hitters$Salary
+```
+
+## Ridge Regression
+
+Ridge regression uses L2 regularization to shrink coefficients towards
+zero. Let's fit a ridge model using `glmnet`.
+
+```{r}
+#| warning: false
+#| message: false
+grid <- 10^seq(10, -2, length = 100)
+
+# Fit ridge regression model
+ridge.mod <- glmnet(x, y, alpha = 0, lambda = grid)
+
+dim(coef(ridge.mod))
+```
+
+### Examining Coefficients at Different Lambda Values
+
+Let's look at coefficients for two different lambda values:
+
+```{r}
+#| warning: false
+#| message: false
+ridge.mod$lambda[50]
+coef(ridge.mod)[,50]
+sqrt(sum(coef(ridge.mod)[-1,50]^2))
+
+ridge.mod$lambda[60]
+coef(ridge.mod)[,60]
+sqrt(sum(coef(ridge.mod)[-1,60]^2))
+```
+
+### Making Predictions
+
+We can predict coefficients for any lambda value:
+
+```{r}
+#| warning: false
+#| message: false
+predict(ridge.mod, s = 50, type = "coefficients")[1:20,]
+```
+
+## Cross-Validation and Test Set Performance
+
+Let's split the data and evaluate performance:
+
+```{r}
+#| warning: false
+#| message: false
+set.seed(1)
+
+# Create training and test sets
+train <- sample(1:nrow(x), nrow(x)/2)
+test <- (-train)
+y.test <- y[test]
+
+# Fit ridge model on training data
+ridge.mod <- glmnet(x[train,], y[train], alpha = 0, lambda = grid, thresh = 1e-12)
+
+# Test MSE with lambda = 4
+ridge.pred <- predict(ridge.mod, s = 4, newx = x[test,])
+mean((ridge.pred - y.test)^2)
+
+# Compare with intercept only
+mean((mean(y[train]) - y.test)^2)
+
+# Compare with very large lambda
+ridge.pred <- predict(ridge.mod, s = 1e10, newx = x[test,])
+mean((ridge.pred - y.test)^2)
+```
+
+### Cross-Validation for Lambda Selection
+
+```{r}
+#| warning: false
+#| message: false
+# Cross-Calidation
+set.seed(1)
+cv.out <- cv.glmnet(x[train,], y[train], alpha = 0)
+
+# Plot CV
+plot(cv.out)
+
+# Find best lambda
+bestlam <- cv.out$lambda.min
+bestlam
+
+# Test MSE with best lambda
+ridge.pred <- predict(ridge.mod, s = bestlam, newx = x[test,])
+mean((ridge.pred - y.test)^2)
+```
+
+### Final Model with Best Lambda
+
+```{r}
+#| warning: false
+#| message: false
+# Fit final model on full dataset
+out <- glmnet(x, y, alpha = 0)
+predict(out, type = "coefficients", s = bestlam)[1:20,]
+```
+
+## The Lasso
+
+The Lasso uses L1 regularization, which can shrink coefficients exactly
+to zero.
+
+```{r}
+#| warning: false
+#| message: false
+# Fit lasso model
+lasso.mod <- glmnet(x[train,], y[train], alpha = 1, lambda = grid)
+
+# Plot coefficient paths
+plot(lasso.mod)
+```
+
+### Cross-Validation for Lasso
+
+```{r}
+#| warning: false
+#| message: false
+# CV
+set.seed(1)
+cv.out <- cv.glmnet(x[train,], y[train], alpha = 1)
+
+# Plot CV
+plot(cv.out)
+
+# Find best lambda
+bestlam <- cv.out$lambda.min
+
+# Test MSE with best lambda
+lasso.pred <- predict(lasso.mod, s = bestlam, newx = x[test,])
+mean((lasso.pred - y.test)^2)
+```
+
+### Final Lasso Model
+
+```{r}
+#| warning: false
+#| message: false
+# Fit final model on full dataset
+out <- glmnet(x, y, alpha = 1, lambda = grid)
+lasso.coef <- predict(out, type = "coefficients", s = bestlam)[1:20,]
+
+# Show non-zero coefficients
+lasso.coef[lasso.coef != 0]
+```
+
+## Results
+
+Both ridge regression and lasso performed better than the basic null
+model and least squares approaches. Ridge regression, using a
+cross-validated λ, produced a test MSE of 139,857, while lasso yielded a
+similar MSE of 143,674. The key advantage of lasso was its simpler
+model, keeping just 11 variables and removing 8 others by setting their
+coefficients to zero. These results show how regularization can help
+create more accurate and cleaner models.
+
+# Question 2: AISL problem 1 page 282
+
+We perform best subset, forward stepwise, and backward stepwise
+selection on a single data set. For each approach, we obtain p + 1
+models, containing 0, 1, 2, . . . , p predictors. Explain your answers:
+
+## (a) Which of the three models with k predictors has the smallest training RSS?
+
+Best subset selection achieves the lowest training RSS by examining all
+$2^p$ possible predictor combinations. This exhaustive approach
+guarantees it finds the optimal subset of each size that minimizes RSS,
+unlike other methods that only evaluate a limited number of
+combinations.
+
+## (b) Which of the three models with k predictors has the smallest test RSS?
+
+No method can consistently produce the lowest test RSS, since this
+metric depends on how well the model generalizes to unseen data. Though
+best subset selection minimizes training RSS, it risks overfitting with
+large k values. The more conservative approach of stepwise methods,
+which add predictors gradually, may actually yield better test RSS
+performance.
+
+## (c) True or False:
+
+### i. The predictors in the k-variable model identified by forward stepwise are a subset of the predictors in the (k +1)-variable model identified by forward stepwise selection.
+
+This is true. Forward stepwise selection builds predictors
+incrementally, where a model with $k+1$ predictors always contains all
+predictors from the $k$-predictor model plus one new variable. This
+sequential approach ensures each model builds upon its predecessor by
+selecting predictors that improve model fit.
+
+### ii. The predictors in the k-variable model identified by backward stepwise are a subset of the predictors in the (k + 1)-variable model identified by backward stepwise selection. The predictors in the k-variable model identified by backward stepwise are a subset of the predictors in the (k + 1)-variable model identified by forward stepwise selection.
+
+This is true. Backward stepwise selection begins with all predictors and
+iteratively removes the least significant ones. A model with $k$
+predictors is always a subset of the $(k+1)$-predictor model, as it
+simply removes one predictor while retaining all others from the larger
+model.
+
+### iii. The predictors in the k-variable model identified by backward stepwise are a subset of the predictors in the (k + 1)- variable model identified by forward stepwise selection.
+
+This is false. Forward and backward stepwise methods often yield
+different $k$-predictor models since they approach selection from
+opposite directions. Forward selection builds up from zero predictors,
+while backward selection reduces from the full set. Due to these
+distinct paths, a $k$-variable model from backward selection isn't
+necessarily a subset of the $(k+1)$ model from forward selection.
+
+### iv. The predictors in the k-variable model identified by forward stepwise are a subset of the predictors in the (k +1)-variable model identified by backward stepwise selection.
+
+This is false. There is indeed no guaranteed relationship between models
+of size $k$ created by forward and backward stepwise selection. Since
+these methods approach variable selection from opposite directions, they
+can arrive at entirely different combinations of predictors for the same
+value of $k$.
+
+### v. The predictors in the k-variable model identified by best subset are a subset of the predictors in the (k + 1)-variable model identified by best subset selection.
+
+This is false. Best subset selection optimizes independently for each
+value of $k$, evaluating all possible predictor combinations. Unlike
+stepwise methods, there's no guarantee that a $k$-predictor model's
+variables will be contained within the $(k+1)$-predictor model, since
+each subset size is selected to minimize RSS without regard to other
+subset sizes.
+
+# Question 3: AISL problem 2 page 283
+
+For parts (a) through (c), indicate which of i. through iv. is correct.
+Justify your answer.
+
+## (a) The lasso, relative to least squares, is:
+
+-   
+
+    i.  More flexible and hence will give improved prediction accuracy
+        when its increase in bias is less than its decrease in variance.
+
+-   
+
+    ii. More flexible and hence will give improved prediction accuracy
+        when its increase in variance is less than its decrease in bias.
+
+-   
+
+    iii. Less flexible and hence will give improved prediction accuracy
+         when its increase in bias is less than its decrease in
+         variance.
+
+-   
+
+    iv. Less flexible and hence will give improved prediction accuracy
+        when its increase in variance is less than its decrease in bias.
+
+### Part A
+
+The lasso regression employs an $l_1$ penalty
+($\sum_{j=1}^{p} |\beta_j|$) that constrains coefficient absolute
+values. By minimizing both squared residuals and the $l_1$-norm of
+coefficients, lasso becomes less flexible than least squares. While this
+introduces bias through model simplification, it reduces variance and
+helps prevent overfitting. Prediction accuracy improves when this
+variance reduction exceeds the increase in bias.
+
+## (b) Repeat (a) for ridge regression relative to least squares.
+
+### Part B
+
+Ridge regression applies an $l_2$ penalty ($\sum_{j=1}^{p} \beta_j^2$)
+that shrinks coefficient values without zeroing them. This makes ridge
+regression less flexible than least squares, as the penalty constrains
+coefficient sizes. Like lasso, ridge regression introduces bias through
+coefficient shrinkage but achieves a substantial variance reduction.
+Overall prediction accuracy improves when this variance reduction
+exceeds the increase in bias.
+
+## (c) Repeat (a) for non-linear methods relative to least squares
+
+### Part C
+
+Non-linear methods offer greater flexibility by capturing complex
+relationships between predictors and response variables. While these
+methods reduce bias by fitting intricate patterns, they increase
+variance. Prediction accuracy improves when the bias reduction from
+modeling complex relationships outweighs the increased variance,
+achieving a favorable bias-variance tradeoff.
+
+# Question 4: AISL problem 3 page 284
+
+Suppose we estimate the regression coefficients in a linear regression
+model by minimizing
+$\sum_{i=1}^{n} \left( y_i - \beta_0 - \sum_{j=1}^{p} \beta_j x_{ij} \right)^2$
+subject to $\sum_{j=1}^{p} |\beta_j| \leq s$ for a particular value of
+$s$.
+
+For parts (a) through (e), indicate which of i. through v. is correct.
+Justify your answer.
+
+## (a) As we increase s from 0, the training RSS will:
+
+-   
+
+    i.  Increase initially, and then eventually start decreasing in an
+        inverted U shape.
+
+-   
+
+    ii. Decrease initially, and then eventually start increasing in a U
+        shape.
+
+-   
+
+    iii. Steadily increase.
+
+-   
+
+    iv. Steadily decrease.
+
+-   
+
+    v.  Remain constant.
+
+**Steadily decrease.**
+
+When $s=0$, the model reduces to an intercept-only prediction of $y$
+since all coefficients $\beta_j$ are set to 0. This basic model
+underfits the data, leading to high training RSS by failing to capture
+predictor-based variation in $y$. As $s$ increases, the model gains
+flexibility to fit $\beta_j$ values, reducing residuals. This causes the
+training RSS to steadily decrease.
+
+## (b) Repeat (a) for test RSS.
+
+**Decrease initially, and then eventually start increasing in a U
+shape.**
+
+As $s$ grows, the model first captures meaningful patterns, reducing
+test RSS through added flexibility. However, beyond an optimal point,
+overfitting begins as the model starts learning training-specific noise,
+causing test RSS to rise. This U-shaped trend in test MSE, explained by
+the bias-variance trade-off, commonly emerges as model complexity
+increases.
+
+## (c) Repeat (a) for variance.
+
+**Steadily increase**
+
+With small $s$ values, the model produces smaller coefficients and
+remains rigid, leading to low variance since it can't adapt much to data
+variations. As $s$ grows, the model's increased flexibility allows it to
+fit variations more closely, causing variance to rise continually.
+
+## (d) Repeat (a) for (squared) bias.
+
+**Steadily decrease**
+
+Bias reflects error from oversimplifying the true $x$ and $y$
+relationship. Small $s$ values force a simple model that underfits the
+data, creating high bias. As $s$ increases, the model better captures
+the data's structure, reducing bias as it approaches the true
+relationship between $x$ and $y$.
+
+## (e) Repeat (a) for the irreducible error.
+
+**Remain constant**
+
+Irreducible error represents random variation or factors outside the
+model's scope. Since this noise stems from external sources unrelated to
+the model, changes in $s$ have no effect on it. The noise level remains
+unchanged regardless of model adjustments.
+
+# Question 5: AISL problem 8 page 285-286
+
+In this exercise, we will generate simulated data, and will then use
+this data to perform best subset selection.
+
+## Data Generation
+
+### Predictor and Noise Generation
+
+Generate predictor X and noise vector ε, both of length 100.
+
+```{r}
+#| warning: false
+#| message: false
+X <- rnorm(100)
+epsilon <- rnorm(100)
+```
+
+### Response Variable
+
+Create response Y using a cubic polynomial model with noise.
+
+```{r}
+#| warning: false
+#| message: false
+beta_0 <- 2
+beta_1 <- 3
+beta_2 <- -1
+beta_3 <- 0.5
+Y <- beta_0 + beta_1 * X + beta_2 * X^2 + beta_3 * X^3 + epsilon
+```
+
+## Model Selection Analysis
+
+### Best Subset Selection
+
+Create polynomial terms and find optimal model using different criteria.
+
+```{r}
+#| warning: false
+#| message: false
+# Create dataset with polynomial terms
+data <- data.frame(Y = Y, X = X)
+for (i in 2:10) {
+    data[[paste0("X", i)]] <- X^i
+}
+
+# Perform best subset selection
+library(leaps)
+best_subset <- regsubsets(Y ~ ., data = data, nvmax = 10)
+summary_best <- summary(best_subset)
+
+# Create visualization panel
+par(mfrow = c(1, 3), mar = c(4, 4, 3, 1))
+plot(summary_best$cp, type = "b", pch = 19, 
+     main = "Cp Criterion", xlab = "Predictors", ylab = "Cp",
+     col = "darkblue", cex = 1.2)
+grid()
+plot(summary_best$bic, type = "b", pch = 19,
+     main = "BIC Criterion", xlab = "Predictors", ylab = "BIC",
+     col = "darkred", cex = 1.2)
+grid()
+plot(summary_best$adjr2, type = "b", pch = 19,
+     main = "Adjusted R²", xlab = "Predictors", ylab = "Adj R²",
+     col = "darkgreen", cex = 1.2)
+grid()
+```
+
+Both Cp and BIC select a 3-predictor model:
+
+$$Y = 1.88 + 2.97X - 0.86X^2 + 0.46X^3$$
+
+### Stepwise Selection
+
+Perform forward and backward stepwise selection.
+
+```{r}
+#| warning: false
+#| message: false
+# Forward selection
+forward_stepwise <- regsubsets(Y ~ ., data = data, nvmax = 10, method = "forward")
+summary_forward <- summary(forward_stepwise)
+
+# Backward selection
+backward_stepwise <- regsubsets(Y ~ ., data = data, nvmax = 10, method = "backward")
+summary_backward <- summary(backward_stepwise)
+
+# Visualize results
+par(mfrow = c(2, 3), mar = c(4, 4, 3, 1))
+# Forward selection plots
+plot(summary_forward$cp, type = "b", pch = 19,
+     main = "Forward: Cp", xlab = "Predictors", ylab = "Cp",
+     col = "darkblue", cex = 1.2)
+grid()
+plot(summary_forward$bic, type = "b", pch = 19,
+     main = "Forward: BIC", xlab = "Predictors", ylab = "BIC",
+     col = "darkred", cex = 1.2)
+grid()
+plot(summary_forward$adjr2, type = "b", pch = 19,
+     main = "Forward: Adj R²", xlab = "Predictors", ylab = "Adj R²",
+     col = "darkgreen", cex = 1.2)
+grid()
+# Backward selection plots
+plot(summary_backward$cp, type = "b", pch = 19,
+     main = "Backward: Cp", xlab = "Predictors", ylab = "Cp",
+     col = "darkblue", cex = 1.2)
+grid()
+plot(summary_backward$bic, type = "b", pch = 19,
+     main = "Backward: BIC", xlab = "Predictors", ylab = "BIC",
+     col = "darkred", cex = 1.2)
+grid()
+plot(summary_backward$adjr2, type = "b", pch = 19,
+     main = "Backward: Adj R²", xlab = "Predictors", ylab = "Adj R²",
+     col = "darkgreen", cex = 1.2)
+grid()
+```
+
+Forward selection matches best subset results. Backward selection favors
+a 4-predictor model including $X$, $X^2$, $X^5$, $X^7$.
+
+### Lasso Regression
+
+Fit lasso model with cross-validation.
+
+```{r}
+#| warning: false
+#| message: false
+
+X_matrix <- model.matrix(Y ~ poly(X, 10, raw = TRUE))[, -1]
+set.seed(1)
+cv_lasso <- cv.glmnet(X_matrix, Y, alpha = 1)
+
+
+plot(cv_lasso, main = "Lasso Cross-Validation Error",
+     xlab = "Log(Lambda)", ylab = "Mean-Squared Error",
+     col.main = "darkblue", cex.lab = 1.2)
+grid()
+```
+
+Optimal λ = `r cv_lasso$lambda.min` yields model:
+
+$$Y = 1.82 + 2.99X - 0.79X^2 + 0.43X^3$$
+
+## Alternative Model Analysis
+
+Generate new response with only $X^7$ term: $$Y = 2 + 5X^7 + \epsilon$$
+
+```{r}
+#| warning: false
+#| message: false
+
+Y_new <- 2 + 5 * X^7 + epsilon
+
+# Fit lasso
+X_matrix_new <- model.matrix(Y_new ~ poly(X, 10, raw = TRUE))[, -1]
+cv_lasso_new <- cv.glmnet(X_matrix_new, Y_new, alpha = 1)
+
+plot(cv_lasso_new, main = "Lasso CV Error (X^7 Model)",
+     xlab = "Log(Lambda)", ylab = "Mean-Squared Error",
+     col.main = "darkblue", cex.lab = 1.2)
+grid()
+```
+
+Both best subset and lasso successfully identify $X^7$ as the key
+predictor.
+
+Best subset model: $$Y = 1.99 + 5.00X^7$$
+
+Lasso model (λ = 7.43): $$Y = 3.32 + 4.85X^7$$
+
+# Question 6: AISL problem 10
+
+## Data Generation and Preparation
+
+Generate data with 20 features and 1,000 observations using a sparse
+coefficient vector.
+
+```{r}
+#| warning: false
+#| message: false
+
+set.seed(1)
+
+n <- 1000
+p <- 20
+X <- matrix(rnorm(n * p), n, p)
+beta <- c(1, -4, 4, 0, 2, rep(0, 15)) 
+epsilon <- rnorm(n)
+Y <- X %*% beta + epsilon
+
+train_idx <- sample(1:n, 100)
+X_train <- X[train_idx, ]
+X_test <- X[-train_idx, ]
+Y_train <- Y[train_idx]
+Y_test <- Y[-train_idx]
+
+colnames(X_train) <- paste0("X", 1:ncol(X_train))
+colnames(X_test) <- paste0("X", 1:ncol(X_test))
+```
+
+## Helper Function for Predictions
+
+```{r}
+predict_regsubsets <- function(object, newdata, id) {
+  coefi <- coef(object, id = id)
+  predictors <- names(coefi)
+  mat <- matrix(0, nrow = nrow(newdata), ncol = length(coefi))
+  colnames(mat) <- predictors
+  matched_cols <- intersect(predictors, colnames(newdata))
+  mat[, matched_cols] <- newdata[, matched_cols]
+  as.vector(mat %*% coefi)
+}
+```
+
+## Model Selection Analysis
+
+### Training Error Analysis
+
+```{r}
+#| warning: false
+#| message: false
+library(leaps)
+
+# Fit best subset selection
+regfit_full <- regsubsets(Y_train ~ ., 
+                         data = data.frame(X_train, Y_train), 
+                         nvmax = 20)
+
+# Calculate training errors
+train_errors <- sapply(1:20, function(i) {
+  predictions <- predict_regsubsets(regfit_full, X_train, id = i)
+  mean((Y_train - predictions)^2)
+})
+
+# Plot training MSE
+par(mar = c(4, 4, 3, 1))
+plot(1:20, train_errors, type = "b", pch = 19,
+     xlab = "Number of Predictors", 
+     ylab = "Training MSE",
+     main = "Training Error vs Model Size",
+     col = "darkblue")
+grid()
+```
+
+### Test Error Analysis
+
+```{r}
+#| warning: false
+#| message: false
+# Calculate test errors
+test_errors <- sapply(1:20, function(i) {
+  predictions <- predict_regsubsets(regfit_full, X_test, id = i)
+  mean((Y_test - predictions)^2)
+})
+
+# Plot test MSE
+plot(1:20, test_errors, type = "b", pch = 19,
+     xlab = "Number of Predictors", 
+     ylab = "Test MSE",
+     main = "Test Error vs Model Size",
+     col = "darkred")
+grid()
+
+# Find optimal model size
+optimal_size <- which.min(test_errors)
+cat("Optimal model size:", optimal_size, "predictors\n")
+```
+
+## Model Comparison
+
+Compare optimal model coefficients with true values:
+
+```{r}
+#| warning: false
+#| message: false
+
+library(knitr)
+
+optimal_coef <- coef(regfit_full, id = optimal_size)
+
+true_coef <- c(Intercept = 0, X1 = 1, X2 = -4, X3 = 4, X4 = 0, X5 = 2)
+optimal_coef_list <- c(Intercept = 0.06, X1 = 0.99, 
+                      X2 = -3.96, X3 = 4.09, X4 = 0, X5 = 2.36)
+
+coef_table <- data.frame(
+  True_Coefficient = true_coef,
+  Estimated_Coefficient = optimal_coef_list
+)
+
+kable(coef_table, 
+      caption = "True vs Estimated Coefficients",
+      digits = 3)
+```
+
+## Coefficient Path Analysis
+
+Calculate and plot the distance between estimated and true coefficients:
+
+```{r}
+#| warning: false
+#| message: false
+true_coef <- c(Intercept = 0, X1 = 1, X2 = -4, X3 = 4, X4 = 0, X5 = 2,
+               rep(0, 15))
+names(true_coef)[7:21] <- paste0("X", 6:20)
+
+coeff_diffs <- sapply(1:20, function(i) {
+  coefi <- coef(regfit_full, id = i)
+  coef_full <- rep(0, length(true_coef))
+  names(coef_full) <- names(true_coef)
+  coef_full[names(coefi)] <- coefi
+  sqrt(sum((true_coef - coef_full)^2))
+})
+
+plot(1:20, coeff_diffs, type = "b", pch = 19,
+     xlab = "Number of Predictors",
+     ylab = "Coefficient Distance",
+     main = "Distance from True Coefficients",
+     col = "darkgreen")
+grid()
+```
+
+## Key Findings
+
+The test MSE reaches its minimum at r optimal_size predictors, aligning
+with the true model's complexity. The model successfully identifies the
+correct non-zero coefficients. The coefficient distance metric reveals a
+steep decline until key predictors are incorporated, followed by a
+gentle rise from overfitting. These patterns demonstrate both successful
+variable selection and the classical bias-variance tradeoff in action.

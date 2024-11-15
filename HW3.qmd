@@ -1,0 +1,529 @@
+---
+title: "36-613 Homework 3"
+author: 
+- "Niccolo Jacimovic"
+date: "9-18-2024"
+format:
+  pdf:
+    colorlinks: true
+---
+
+```{r setup, include=FALSE}
+#| warning: false
+#| message: false
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(ggdag)
+library(styler)
+library(gridExtra)
+library(cowplot)
+library(GGally)
+library(car)
+library(broom)
+library(dplyr)
+```
+
+## Question 1: Faculty Salaries Study
+
+In a study of faculty salaries in a small college in the Midwest, a linear regression model was fit, giving the fitted mean function (fitted regression function)
+
+*E(Salary\|Sex, Years) = 18065 + 201Sex + 759Years*
+
+Where Sex=1 if the faculty member was female and zero if male and Years is the number of years employed at this college. The response Salary is measured in dollars (the data are from the 1970s).
+
+### Part A
+
+However, it is believed that for a given number of years of employment, the salary of men and women do not increase at the same rate. What regression function would you fit to allow for this possibility?
+
+*To allow for different rates of salary increase between men and women based on years of employment, we would introduce an interaction term.The modified regression function could be:*
+
+**E(Salary\|Sex, Years) =** $\beta_0$ + $\beta_1$Sex + $\beta_2$Years + $\beta_0$$X₃$
+
+### Part B
+
+Describe how you would test the hypothesis that the the salary of men and women increase at the same rate given the same seniority, versus that they do not. Be specific.
+
+*To test if salaries of men and women increase at the same rate with seniority, we would fit a regression model with an interaction term. We would then focus on the coefficient of this interaction term, conducting a t-test to determine if it's significantly different from zero. The null hypothesis would be that the coefficient equals zero (same rate of increase), while the alternative hypothesis would be that it's non-zero (different rates). The resulting p-value would be compared to our chosen significance level to make a decision about rejecting or failing to reject the null hypothesis.*
+
+## Question 2: Linear Regression Model Assumptions
+
+List the assumptions of the linear regression model? For the following datasets, do you think that the constant variance assumption is reasonable? Note that this does not require a data analysis; it requires thoughts prior to performing any analysis.
+
+**Model Assumptions**
+
+*1) Linear Model is the correct model*
+
+*2) There is constant variance*
+
+*3) The residuals are normal*
+
+*4) The residuals are independent*
+
+### Part A
+
+The class notes SAT dataset.
+
+*The SAT dataset likely exhibits relatively constant variance due to a balancing effect between sample size and variability across states. States with more extreme SAT scores or predictor values may have smaller sample sizes (fewer test takers), reducing their impact on overall variance. Conversely, states with scores closer to the mean might have larger sample sizes, stabilizing the variance.*
+
+### Part B
+
+The class notes Bush-Buchanan election dataset.
+
+*In the Bush-Buchanan election dataset, constant variance is unlikely due to varying district sizes and competitiveness. Larger districts or closely contested areas may show more variability in vote counts. However, if data are presented as percentages rather than raw counts, this could help stabilize variance. While perfect homoscedasticity is improbable, the degree of non-constant variance may not severely impact the analysis, but should be checked using residual plots.*
+
+### Part C
+
+The class notes prostate cancer dataset in the Causality chapter.
+
+*The constant variance assumption is likely not reasonable for this prostate cancer dataset. The response variable is a death rate, which exhibits non-constant variance as the mean changes. Additionally, differences in population sizes between states could lead to non-constant variance.*
+
+## Question 3: Interpreting Diagnostic Plots
+
+This problem only requires reading and understanding your book. There is no code to run. Feel free to copy the relevant figures from the Sheather book and circle your answers, if that makes it easier for you to answer, and give explanations when requested. When I request no explanation, I trust that you could give one, so please make sure you could give one! The -only- purpose of the HW is for you to learn and realize what you know and what you don't know, so please make sure to ask questions in class or OH when you don't understand something.
+
+### Part A
+
+Consider Sheather Fig. 3.1. Answer the following for each of the plots: -- Are they high leverage points (outliers in X)? If so, which points? No need to explain. -- Are there points that appear to not follow the same model as the other points (outliers in Y)? If so, which points? No need to explain. -- Are there particularly influential points (high Cook's distance) for the linear model shown on the plot? If so, which points? No need to explain. -- Are there points for which standardized and studentized residuals are very different? If so, which points? Explain.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_1.png)
+
+*Data Set 1 shows minimal issues, with only the rightmost point having high leverage and influence. Data Set 2 has a clear outlier in Y and a high leverage point, both likely influential. Data Set 3 presents a similar pattern to Data Set 2, with a distinct Y outlier and a high leverage point at the right. Data Set 4 displays an unusual pattern with two distinct clusters, making the rightmost point and the entire right cluster potentially influential.*
+
+### Part B
+
+Consider Sheather Fig 3.9. -- Are they high leverage points? If so, which points? No need to explain. -- Are there points that appear to not follow the same model as the other points? If so, which points? Explain. -- Are there particularly influential points (high Cook's distance) for the linear model shown on the plot? If so, which points? No need to explain.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_9.png)
+
+*The bond data plot reveals high leverage points at both extremes of the coupon rate range. Three points at the lower left notably deviate from the overall positive trend, suggesting they don't follow the same model as the majority. Both the leftmost and rightmost point clusters are likely influential due to their extreme x-values and departure from the general data pattern.*
+
+### Part C
+
+Consider Fig 3.10. -- What is this diagnostic plot typically used for? (There may be more than 1 use; please list them all). -- This plot is clearly pathological. Does it imply that the mean model fitted to the data was not a good model? Explain.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_10.png)
+
+*This plot helps check if model assumptions are met, spot unusual data points, and identify patterns the model missed. The clear curved pattern indicates a non-linear relationship between coupon rate and bid price that the linear model failed to capture. While this suggests the current model isn't optimal, it doesn't necessarily mean it's entirely inappropriate.*
+
+### Part D
+
+Consider Fig 3.12. -- What is this diagnostic plot typically used for? -- Based on this plot, do you have concerns about the adequacy of the model that was fitted? Explain.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_12.png)
+
+*This plot of standardized residuals versus coupon rate helps check model assumptions and identify potential issues. The residuals show a slight curve and spread out more at higher coupon rates, hinting at some non-linearity and uneven variance in the model. An outlier with a standardized residual below -3 is also visible, indicating that while the model may be reasonable, there's room for improvement through techniques like polynomial terms, weighted least squares, or investigating the outlier.*
+
+### Part E
+
+Consider Fig 3.13. In your opinion, what points are influential (for the regression that was fitted)? Explain how you identified these points; in particular, what cut-off value did you use?
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_13.png)
+
+*Points 4, 13 and 35 appear to be influential for the fitted regression based on their high Cook's distance values. Point 13 is especially notable with a Cook's distance greater than 1, which is a commonly used threshold for identifying influential points. Points 4 and 35 also shows a higher Cook's distance than most other points, and they are above the threshold (dotted line), which means they should be considered influential.*
+
+### Part F
+
+Consider Fig 3.14. Based on this subset of Diagnostic plots, which model assumptions seem invalid? Are there particular data points that concern you? Explain.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_14.png)
+
+*The diagnostic plots suggest violations of linearity and normality assumptions in the model. I am not too worried about the Q-Q plot as it is pretty good, though not ideal. The curved pattern in the residuals vs fitted plot indicate that a linear model may not be appropriate for this data.*
+
+### Part G
+
+Consider Fig 3.15. Based on the description of the problem, comment on the adequacy of the 4 assumptions we usually make, and write the assumptions you think are correct.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_15.png)
+
+*The linear model assumption appears reasonable given the generally linear trend in the data. The constant variance assumption seems to hold as the spread of points around the line is fairly consistent across the range of crew numbers (theirs a little fan). While we can't definitively assess normality and independence of residuals from this plot alone, the symmetric scatter doesn't suggest major violations, and independence is likely if each point represents a separate cleaning event.*
+
+### Part H
+
+Consider Fig 3.18. These are a selection of diagnostic plots for a model fitted to data. I believe a transformation was applied to the data before the model was fitted. -- What was the transformation and for what purpose was it applied? -- Was the transformation successful in fixing the problem? -- If not, which plot(s) show the problem? Are there other problems you can detect from these plots?
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_18.png)
+
+*A square root transformation was applied to the response variable to stabilize variance and improve linearity. The transformation was partially successful but didn't fully resolve all issues, as evidenced by the slight curve in the Residuals vs Fitted plot and the upward trend in the Scale-Location plot. Additional concerns include non-normality in residuals, particularly visible in the tails of the Normal Q-Q plot, but overall looks pretty good.*
+
+OK, you get the gist of this: when studying your book, you need to be aware of what you understand and don't understand. The book has great examples and illustrations, which are well worth spending time understanding.
+
+## Question 4: Sheather, Ch 3, #5
+
+An analyst for the auto industry has asked for your help in modeling data on the prices of new cars. Interest centers on modeling suggested retail price as a func- tion of the cost to the dealer for 234 new cars. The data set, which is available on the book website in the file cars04.csv, is a subset of the data from http://www.amstat.org/publications/jse/datasets/04cars.txt
+
+The first model fit to the data was
+
+*Suggested Retail Price =* $\beta_0$ + $\beta_1$(Dealer Cost) + $\epsilon$
+
+On the following pages is some output from fitting model (3.10) as well as some plots (Figure 3.46).
+
+## Part A
+
+Based on the output for model (3.10) the analyst concluded the following: Since the model explains just more than 99.8% of the variability in Suggested Retail Price and the coefficient of Dealer Cost has a t-value greater than 412, model (1) is a highly effective model for producing prediction intervals for Suggested Retail Price. Provide a detailed critique of this conclusion.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_46.png)
+
+*The analyst's conclusion overlooks critical issues despite the high R-squared and significant coefficient. The diagnostic plots reveal non-linearity and non-normal residuals, violating key assumptions of linear regression. These issues suggest the model may not be as reliable for predictions as claimed, especially for higher-priced cars. Further refinement of the model is necessary before it can be confidently used for prediction intervals.*
+
+## Part B
+
+Carefully describe all the shortcomings evident in model (3.10). For each short- coming, describe the steps needed to overcome the shortcoming.
+
+*Model (3.10) shows non-linearity in the relationship between DealerCost and SuggestedRetailPrice, as well as heteroscedasticity in the residuals.*
+
+*The residuals also deviate from normality, particularly in the tails, and there are potential outliers or influential points at higher price ranges. The model is overly simplistic, relying solely on DealerCost as a predictor for SuggestedRetailPrice.*
+
+*To address these issues, I would consider a non-linear transformations (log), investigating and potentially addressing outliers (looking at Cooks Number, Leverage, and Studentization), and incorporating additional relevant predictors into the model (if needed/possible).*
+
+The second model fitted to the data was
+
+*log(Suggested Retail Price) =*$\beta_0$ + $\beta_1$log(Dealer Cost) + $\epsilon$
+
+Output from model (3.11) and plots (Figure 3.47) appear on the following pages.
+
+![](/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/sheather3_47.png)
+
+## Part C
+
+Is model (3.11) an improvement over model (3.10) in terms of predicting Suggested Retail Price? If so, please describe all the ways in which it is an improvement.
+
+*Model (3.11) shows significant improvements over model (3.10) in several areas. The log-log transformation has resulted in a more linear relationship between the variables and has largely addressed issues seen in the original model. The normality of residuals has improved, as evidenced by the Q-Q plot. Additionally, the log transformation has reduced the impact of potential outliers, particularly for higher-priced cars, making the model much better and likely to provide more reliable predictions across the entire price range.*
+
+## Part D
+
+Interpret the estimated coefficient of log(Dealer Cost) in model (3.11).
+
+*In model (3.11),* $\beta_1$ represents the elasticity of Suggested Retail Price with respect to Dealer Cost. A 1% increase in Dealer Cost is associated with an expected $\beta_1$ % increase in Suggested Retail Price, holding other factors constant.
+
+## Part E
+
+List any weaknesses apparent in model (3.11).
+
+*Model (3.11) still shows some inconsistency in the spread of residuals, with the variance slightly increasing for higher log(DealerCost) values. The Q-Q plot reveals deviations from normality at both tails, particularly for negative residuals, and there are potential outliers visible in the residuals plot. Additionally, the model's simplicity, using only one predictor variable, may limit its ability to fully capture all factors influencing Suggested Retail Price.*
+
+## Question 5: Sheather, Ch 6, #5
+
+Make sure to produce all the diagnostic plots we discussed in class, rather than the reduced set of diagnostics the plot(lm.out) function provides.
+
+For part (b), first produce a DAG to guide you with which covariates to include in the model. Also feel free to transform variables as needed so that the assumptions of the linear regression model are satisfied.
+
+For part (e): We will discuss variable selection later on. For now, remember that the t statistic for each column $Xj$ of the $X$ matrix tests whether the coefficient $\beta_j$ is significantly different from zero, after including all other columns of X in the model.
+
+**Question**
+
+An avid fan of the PGA tour with limited background in statistics has sought your help in answering one of the age-old questions in golf, namely, what is the relative importance of each different aspect of the game on average prize money in professional golf?
+
+The following data on the top 196 tour players in 2006 can be found on the book web site in the file pgatour2006.csv:
+
+$Y$: PrizeMoney = average prize money per tournament
+
+$X_1$: Driving Accuracy is the percent of time a player is able to hit the fairway with his tee shot.
+
+$X_2$: GIR, Greens in Regulation is the percent of time a player was able to hit the green in regulation. A green is considered hit in regulation if any part of theball is touching the putting surface and the number of strokes taken is two or less than par.
+
+$X_3$: Putting Average measures putting performance on those holes where the green is hit in regulation (GIR). By using greens hit in regulation the effects of chipping close and one putting are eliminated.
+
+$X_4$: Birdie Conversion% is the percent of time a player makes birdie or better after hitting the green in regulation.
+
+$X_5$: SandSaves% is the percent of time a player was able to get "up and down" once in a greenside sand bunker.
+
+$X_6$: Scrambling% is the percent of time that a player misses the green in regulation, but still makes par or better.
+
+$X_7$: PuttsPerRound is the average total number of putts per round. (http://www.pgatour.com/r/stats/; accessed March 13, 2007
+
+##Part A
+
+```{r, echo = FALSE}
+#| warning: false
+#| message: false
+library(readr)
+pgatour2006 <- read_csv("/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW3/pgatour2006.csv")
+```
+
+A statistician from Australia has recommended to the analyst that they not transform any of the predictor variables but that they transform Y using the log transformation. Do you agree with this recommendation? Give reasons to support your answer.
+
+```{r, echo = FALSE}
+#| warning: false
+#| message: false
+ggpairs(pgatour2006, 
+        columns = c("PrizeMoney", "DrivingAccuracy", "GIR", "PuttingAverage", 
+                    "BirdieConversion", "SandSaves", "Scrambling", "PuttsPerRound"),
+        lower = list(continuous = "smooth"),
+        diag = list(continuous = "densityDiag"),
+        upper = list(continuous = "cor"),
+        title = "Pairwise Relationships in PGA Tour 2006 Data") +
+  theme_bw() +
+  theme(axis.text = element_text(size = 6),
+        axis.title = element_text(size = 8),
+        plot.title = element_text(size = 12))
+```
+
+*The ggpairs plot supports the Australian statistician's recommendation to log-transform PrizeMoney while leaving predictors untransformed. PrizeMoney shows a highly right-skewed distribution and non-linear relationships with predictors, which a log transformation could address. Most predictors display relatively normal distributions or are already in percentage form, suggesting they don't require transformation for effective analysis.*
+
+## Part B
+
+Develop a valid full regression model containing all seven potential predictor variables listed above. Ensure that you provide justification for your choice of full model, which includes scatter plots of the data, plots of standardized residuals, and any other relevant diagnostic plots.
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+node_color <- "darkgreen"
+edge_color <- "black"
+text_color <- "white"
+text_size <- 3.5
+background_color <- "white"
+
+pga_tour_dag <- dagify(
+  PM ~ DA + GIR + PA + BC + SS + SC + PPR,
+  GIR ~ DA,
+  PA ~ GIR,
+  BC ~ GIR + PA,
+  SS ~ GIR,
+  SC ~ GIR + SS,
+  PPR ~ PA,
+  exposure = "GIR",
+  outcome = "PM",
+  labels = c(
+    PM = "Prize Money",
+    DA = "Driving Accuracy",
+    GIR = "Greens in Regulation",
+    PA = "Putting Average",
+    BC = "Birdie Conversion",
+    SS = "Sand Saves",
+    SC = "Scrambling",
+    PPR = "Putts Per Round"
+  )
+)
+
+legend_df <- data.frame(
+  Abbreviation = c("PM", "DA", "GIR", "PA", "BC", "SS", "SC", "PPR"),
+  Meaning = c(
+    "Prize Money", "Driving Accuracy", "Greens in Regulation", "Putting Average",
+    "Birdie Conversion", "Sand Saves", "Scrambling", "Putts Per Round"
+  )
+)
+
+dag1 <- ggdag(pga_tour_dag, layout = "circle") +
+  theme_dag() +
+  geom_dag_point(color = node_color, size = 15) +
+  geom_dag_text(color = text_color, size = text_size) +
+  geom_dag_edges(edge_color = edge_color, edge_width = 0.5) +
+  theme(
+    plot.background = element_rect(fill = background_color, color = NA),
+    plot.title = element_text(hjust = 0.5, size = text_size * 3, color = "black"),
+    plot.margin = margin(10, 10, 50, 10)
+  ) +
+  ggtitle("PGA Tour Performance Factors")
+
+leg1 <- ggplot() +
+  geom_blank() +
+  theme_minimal() +
+  annotation_custom(
+    grob = tableGrob(legend_df, rows = NULL)
+  )
+
+grid.arrange(dag1, leg1, ncol = 2)
+```
+
+*This DAG shows the relationships between performance factors in professional golf and their influence on prize money. The arrows indicate causal connections between factors, such as driving accuracy affecting greens in regulation.*
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+
+pgatour2006$logPrizeMoney <- log(pgatour2006$PrizeMoney)
+
+full_model <- lm(
+  logPrizeMoney ~ DrivingAccuracy + GIR + PuttingAverage +
+    BirdieConversion + SandSaves + Scrambling + PuttsPerRound,
+  data = pgatour2006
+)
+
+summary(full_model)
+
+create_scatter_plot <- function(data, x_var, y_var) {
+  ggplot(data, aes_string(x = x_var, y = y_var)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = FALSE, color = "red") +
+    theme_bw() +
+    labs(x = x_var, y = y_var)
+}
+
+scatter_plots <- lapply(names(pgatour2006)[2:8], function(x) create_scatter_plot(pgatour2006, x, "logPrizeMoney"))
+
+grid.arrange(grobs = scatter_plots, ncol = 3)
+
+model_diagnostics <- augment(full_model) %>%
+  mutate(
+    leverage = hatvalues(full_model),
+    mse = mean(full_model$residuals^2),
+    studresid = .resid / (sqrt(mse * (1 - leverage)))
+  )
+
+# Residuals vs Fitted
+p1 <- ggplot(model_diagnostics, aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  geom_smooth(se = FALSE, color = "blue") +
+  labs(x = "Fitted values", y = "Residuals") +
+  ggtitle("Residuals vs Fitted") +
+  theme_bw()
+
+# Normal Q-Q
+p2 <- ggplot(model_diagnostics, aes(sample = .std.resid)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(x = "Theoretical Quantiles", y = "Standardized Residuals") +
+  ggtitle("Normal Q-Q") +
+  theme_bw()
+
+# Scale-Location
+p3 <- ggplot(model_diagnostics, aes(x = .fitted, y = sqrt(abs(.std.resid)))) +
+  geom_point() +
+  geom_smooth(se = FALSE, color = "red") +
+  labs(x = "Fitted values", y = "√|Standardized Residuals|") +
+  ggtitle("Scale-Location") +
+  theme_bw()
+
+# Residuals vs Leverage
+p4 <- ggplot(model_diagnostics, aes(x = .hat, y = .std.resid)) +
+  geom_point() +
+  geom_smooth(se = FALSE, color = "red") +
+  labs(x = "Leverage", y = "Standardized Residuals") +
+  ggtitle("Residuals vs Leverage") +
+  theme_bw()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+
+# Y-predicted vs Y-actual
+ggplot(model_diagnostics, aes(x = .fitted, y = logPrizeMoney)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(x = "Predicted log(PrizeMoney)", y = "Actual log(PrizeMoney)") +
+  ggtitle("Y-predicted vs Y-actual") +
+  theme_bw()
+
+# X vs residuals
+predictor_vars <- c("DrivingAccuracy", "GIR", "PuttingAverage", "BirdieConversion", "SandSaves", "Scrambling", "PuttsPerRound")
+
+x_resid_plots <- lapply(predictor_vars, function(x) {
+  ggplot(model_diagnostics, aes_string(x = x, y = ".resid")) +
+    geom_point() +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+    geom_hline(yintercept = c(-2, 2), linetype = "dotted", color = "darkgrey") +
+    geom_smooth(se = FALSE, color = "blue") +
+    labs(x = x, y = "Residuals") +
+    theme_bw()
+})
+
+grid.arrange(grobs = x_resid_plots, ncol = 4)
+
+# Studentized Residual Plot
+ggplot(model_diagnostics, aes(x = seq_along(studresid), y = studresid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  geom_hline(yintercept = c(-3, 3), linetype = "dotted", color = "blue") +
+  labs(x = "Observation Number", y = "Studentized Residuals") +
+  ggtitle("Studentized Residuals Plot") +
+  theme_bw()
+```
+
+*Based on the provided information and plots, a valid full regression model containing all seven potential predictor variables is justified. The scatter plots in Figure 1 show varying degrees of linear relationships between these predictors and the log-transformed PrizeMoney, suggesting their potential relevance in the model. The residual plots in Figure 2, 4, and 5 generally indicate that the assumptions of linearity, homoscedasticity, and normality of residuals are reasonably met. The Y-predicted vs Y-actual plot in Figure 3 shows a strong positive correlation, further supporting the model's validity.*
+
+*Examining the coefficients, we can see that GIR and BirdieConversion are highly significant (p \< 0.001), while the other variables are not statistically significant at the 0.05 level. This suggests that while the full model may be valid, these variables might not be contributing significantly to predicting log(PrizeMoney).*
+
+## Part C
+
+Identify any points that should be investigated. Give one or more reasons to support each point chosen.
+
+*Based on the diagnostic plots, several points warrant investigation. The Studentized Residuals Plot (Figure 5) shows a few points beyond the ±3 standard deviation lines, indicating potential outliers that could affect the model's fit. Additionally, the Residuals vs Leverage plot (Figure 2) reveals points with high leverage and possibly high influence (approaching Cook's distance lines), which may disproportionately impact the regression model.*
+
+## Part D
+
+Describe any weaknesses in your model.
+
+*A notable weakness in the model is the presence of several non-significant predictors, including DrivingAccuracy, PuttingAverage, SandSaves, Scrambling, and PuttsPerRound, which may lead to overfitting and reduced model performance.*
+
+## Part E
+
+The golf fan wants to remove all predictors with insignificant t-values from the full model in a single step. Explain why you would not recommend this approach.
+
+*Removing all insignificant predictors simultaneously is not recommended as it ignores potential multicollinearity among variables. Some predictors may become significant when others are removed, and this approach might overlook important interactions or confounding effects. Additionally, this method disregards the possibility that some variables, while not individually significant, may collectively contribute to the model's explanatory power.*
+
+## Question 6: Rail Trails Project (Part 1)
+
+In the late 1800s and early 1900s, the United States developed a very large and efficient railroad transportation system, both for cargo and for passengers. But cars became dominant by the 1950s and the Interstate Highway System made it easier to drive long distances; passenger rail began a long decline and eventually had to be rescued by the federal government (in the form of Amtrak). Cargo rail also changed, as steel mills, coal mines, and other big users of railroads declined, and new users appeared (such as transportation companies shipping products from West Coast ports to warehouses across the country). Many old rail lines were no longer useful. Starting in the 1980s, some of these unused rail lines began to be converted to rail trails: walking and biking trails following the route of the old line. The steel tracks were removed and a path added in their place. Because rail lines are long and have only gentle slopes and curves, rail trails are easy to bike along and easy to walk or run on. Our research question is: Are rail trails attractive for people buying homes, who might be willing to pay more for a house closer to a rail trail?
+
+### Part A
+
+Make a list of variables that might be useful for answering this question. If you could collect data about houses and their prices, what data would you want to collect? Keep in mind that we only know the true price of a house when it sells; in between sales, we can only guess.
+
+*I would want to collect data on house sale prices and dates, along with the distance of each house to the nearest rail trail. Key house characteristics to include would be square footage, number of bedrooms and bathrooms, lot size, year built, and type of house. I would also collect data on location details like ZIP code and city, and try to get neighborhood characteristics such as school district quality, crime rates, and proximity to other amenities like public transportation and parks.*
+
+### Part B
+
+Sketch a causal diagram (DAG) of features here and comment on what you'd need to measure. Would you need to conduct some kind of randomized experiment, or could observational data work?
+
+```{r, echo=FALSE}
+node_color <- "darkred"
+edge_color <- "black"
+text_color <- "white"
+text_size <- 3.5
+background_color <- "white"
+
+rail_trail_dag <- dagify(
+  HP ~ RT + HC + NQ + LC + T,
+  RT ~ NQ + LC + T,
+  NQ ~ LC,
+  exposure = "RT",
+  outcome = "HP",
+  labels = c(
+    HP = "House Price",
+    RT = "Rail Trail Proximity",
+    HC = "House Characteristics",
+    NQ = "Neighborhood Quality",
+    LC = "Location Characteristics",
+    T = "Time"
+  )
+)
+
+legend_df <- data.frame(
+  Abbreviation = c("HP", "RT", "HC", "NQ", "LC", "T"),
+  Meaning = c(
+    "House Price", "Rail Trail Proximity", "House Characteristics",
+    "Neighborhood Quality", "Location Characteristics", "Time"
+  )
+)
+
+dag2 <- ggdag(rail_trail_dag, layout = "circle") +
+  theme_dag() +
+  geom_dag_point(color = node_color, size = 15) +
+  geom_dag_text(color = text_color, size = text_size) +
+  geom_dag_edges(edge_color = edge_color, edge_width = 0.5) +
+  theme(
+    plot.background = element_rect(fill = background_color, color = NA),
+    plot.title = element_text(hjust = 0.5, size = text_size * 3, color = text_color),
+    plot.margin = margin(10, 10, 50, 10)
+  ) +
+  ggtitle("Rail Trail Impact on House Prices")
+
+leg2 <- ggplot() +
+  geom_blank() +
+  theme_void() +
+  annotation_custom(
+    grob = tableGrob(legend_df, rows = NULL)
+  )
+
+grid.arrange(dag2, leg2, ncol = 2)
+```
+
+### Part C
+
+If you were to use observational data, what kind of limitations would there be in your analysis?
+
+*Using observational data in this analysis may lead to limitations such as selection bias, where buyers who prefer outdoor activities might already choose homes near rail trails, skewing results. Additionally, confounding factors like neighborhood amenities or proximity to public transportation may affect home prices independently of the rail trail's presence.*
+
+Please do not try to look up what data may already exist to answer this research question. The point is to think of what data you want, not what exists. Later I will give you real data, and it may not match what you want---and you'll have to figure out how to use it anyway.
+
+Also, after you think deeply about these questions on your own (it is important that you ponder seriously), feel free to argue about this with fellow MADS students. You might get great ideas from them, or you might convince them that they need other variables, or that you have a better idea for how to collect data.

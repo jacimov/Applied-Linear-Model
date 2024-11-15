@@ -1,0 +1,320 @@
+---
+title: "Applied Linear Models Homework 1"
+author: 
+- "Nicco Jacimovic"
+date: 2024-09-05
+format:
+  pdf:
+    colorlinks: true
+---
+
+```{r setup, include=FALSE}
+library(ISLR2)
+library(ggplot2)
+library(styler)
+library(ggdag)
+library(readr)
+library(tidyverse)
+library(ggdag)
+```
+
+## Question 1
+
+```{r, echo=FALSE}
+
+# Replicability
+set.seed(123)
+
+# Generate data
+x <- seq(0, 10, length.out = 100)
+y_causal <- 10 - 0.5 * x
+
+# Generate parallel counterfactual lines
+counterfactuals <- list(
+  Counter_Factual_1 = y_causal + 6,
+  Counter_Factual_2 = y_causal + 5,
+  Counter_Factual_3 = y_causal + 4,
+  Counter_Factual_4 = y_causal + 1,
+  Counter_Factual_5 = y_causal + 2,
+  Counter_Factual_6 = y_causal + 3
+)
+
+# Create a data frame
+df <- data.frame(
+  x = rep(x, length(counterfactuals) + 1),
+  y = c(y_causal, unlist(counterfactuals)),
+  group = factor(rep(c("Causal Effect", names(counterfactuals)), each = length(x)))
+)
+
+# Define colors for each line
+colors <- c(
+  "Causal Effect" = "black",
+  "Counter_Factual_1" = "red",
+  "Counter_Factual_2" = "blue",
+  "Counter_Factual_3" = "green",
+  "Counter_Factual_4" = "purple",
+  "Counter_Factual_5" = "orange",
+  "Counter_Factual_6" = "brown"
+)
+
+# Generate points for counterfactual lines
+point_x <- runif(6, min = 0, max = 10)
+point_y <- sapply(1:6, function(i) counterfactuals[[i]][which.min(abs(x - point_x[i]))])
+point_df <- data.frame(
+  x = point_x,
+  y = point_y,
+  group = names(counterfactuals)
+)
+
+# Create the plot
+ggplot(df, aes(x = x, y = y, color = group)) +
+  geom_line(aes(size = group == "Causal Effect")) +
+  geom_point(data = point_df, size = 3, color = "black") +
+  scale_color_manual(values = colors) +
+  scale_size_manual(values = c("TRUE" = 1.5, "FALSE" = 0.7), guide = "none") +
+  labs(
+    title = "Causal Effect of X on Y with Parallel Counterfactuals",
+    x = "X", y = "Y", color = "Legend"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 8)
+  ) +
+  guides(color = guide_legend(override.aes = list(size = 2)))
+```
+
+***Answer***
+
+*In this scenario, regressing Y on X would not accurately reveal the true causal effect of X on Y. The presence of the confounder Z, which is positively associated with both X and Y, will distort the observed relationship between X and Y. The regression line will capture both the direct effect of X on Y and the indirect effect through Z, leading to a biased estimate of the causal effect. The regression would also capture the associational relationship between X and Y in our observed data, which differs from the true causal relationship due to the confounding effect of Z.*
+
+## Question 2
+
+```{r, echo=FALSE}
+node_color <- "maroon"
+edge_color <- "darkgray"
+text_color <- "black"
+text_size <- 3.5
+background_color <- "white"
+
+sat_dag <- dagify(
+  SAT ~ INCOME + EXPEND + YEARS + RANK + PUBLIC + TAKERS,
+  EXPEND ~ INCOME,
+  RANK ~ INCOME,
+  exposure = "INCOME",
+  outcome = "SAT"
+)
+
+ggdag(sat_dag, layout = "circle") +
+  theme_dag() +
+  geom_dag_point(color = node_color, size = 20) +
+  geom_dag_text(color = text_color, size = text_size) +
+  geom_dag_edges(edge_color = edge_color, edge_width = 0.5) +
+  theme(
+    plot.background = element_rect(fill = background_color, color = NA),
+    plot.title = element_text(hjust = 0.5, size = text_size * 3, color = text_color)
+  ) +
+  ggtitle("DAG for SAT Data")
+
+```
+
+***Answer***
+
+**Income influences expenditure, rank, and sat directly. If the average income is higher, that means that property taxes are higher, influencing schools budget, and therefore their expenditure and rank. If a school can spend more money on their students for SAT prep and general academic studies, that impact how students will do on the SAT.**
+
+## Question 3
+
+```{r, echo=FALSE, show_col_types = FALSE}
+kidiq <- read_csv("/Users/niccolo/Desktop/Applied Linear Models/Applied-Linear-Model/HW1/kidiq.csv")
+
+```
+
+***Answer***
+
+**Part A**
+
+*The dimensions of y is 434x1, and the dimensions of X is 434x3. I have also included the first few rows of each matrix, using the 'head()' command.*
+
+```{r, echo=FALSE}
+## Part A
+y <- as.matrix(kidiq$kid.score)
+X <- cbind(1, kidiq$mom.hs, kidiq$mom.iq)
+```
+```{r, echo=TRUE}
+dim(y)
+dim(X)
+head(y)
+head(X)
+```
+
+**Part B**
+
+*Martix V should be a 3x3 matrix is (X^T x X)^-1, where X is 434x3. Therefore, the resulting matrix should be 3x3.*
+```{r, echo=FALSE}
+## Part B
+X_t <- t(X)
+X_tX <- X_t %*% X
+V <- solve(X_tX)
+```
+```{r, echo=TRUE}
+dim(V)
+head(V)
+```
+
+**Part C**
+
+*Here is β = (X^T x X)^-1 x X^T x y*
+
+```{r, echo=TRUE}
+## Part C
+B <- V %*% X_t %*% y
+dim(B)
+head(B)
+```
+
+**Part D**
+
+*Here are the calculations for residual vector, the residual variance, and sigma^2. I have also included the values for n and p as well.*
+
+```{r, echo=TRUE}
+## Part D
+residuals <- y - X %*% B
+n <- dim(X)[1]
+n
+p <- dim(X)[2]
+p
+s2 <- sum(residuals^2) / (n - p)
+s2
+```
+
+**Part E**
+
+*Here are the calculations for the standard errors of β0, β1, and
+β2.*
+
+```{r, echo=FALSE}
+## Part E
+var_B <- s2 * V
+se_beta <- sqrt(diag(var_B))
+head(se_beta)
+```
+
+**Part E**
+
+*My standard errors are the exact same as the ones produced by the lm() function.*
+
+```{r, echo=FALSE}
+## Part F
+model <- lm(kid.score ~ mom.hs + mom.iq, data = kidiq)
+summary(model)
+```
+
+## Question 4
+
+***Answer***
+
+**Part A**
+```{r, echo=TRUE}
+model <- lm(mpg ~ horsepower, data = Auto)
+summary(model)
+```
+
+*There is a moderately strong relationship between mpg and horse power, with r^2 = 0.6. The P-Value is statistically significant, indicating that horsepower has some predictive power for mpg. There is a negative relationship between horsepower and mpg.*
+
+```{r, echo=TRUE}
+# Part II
+new_data <- data.frame(horsepower = 98)
+predict(model, new_data, interval = "confidence")
+predict(model, new_data, interval = "prediction")
+```
+
+*The mpg predicted with 98 hp is 24.47 ± 0.49. The prediction interval for mpg is 14.81 - 34.12.*
+
+**Part B**
+
+```{r, echo=FALSE}
+# Part B
+ggplot(Auto, aes(x = horsepower, y = mpg)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(
+    title = "MPG vs Horsepower",
+    x = "Horsepower",
+    y = "MPG"
+  ) +
+  theme_bw()
+```
+
+**Part C**
+
+```{r, echo=FALSE}
+## Part C
+# Residuals vs Fitted
+ggplot(model, aes(.fitted, .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_smooth(se = FALSE) +
+  labs(title = "Residuals vs Fitted", x = "Fitted values", y = "Residuals") +
+  theme_bw()
+```
+
+*There is a curve pattern within the residuals vs fitted plot, where y_hat increases, the variance increases. This is not ideal, as we assume constant variance during out model fitment.*
+
+```{r, echo=FALSE}
+# Normal Q-Q
+ggplot(model, aes(sample = .stdresid)) +
+  stat_qq() +
+  stat_qq_line() +
+  labs(title = "Normal Q-Q", x = "Theoretical Quantiles", y = "Standardized Residuals") +
+  theme_bw()
+```
+
+*Looking at the Normal Q-Q plot, we can see at the tails that the points are aligned very linearly, indicating that these points are not normally distributed.*
+
+```{r, echo=FALSE}
+# Scale-Location
+ggplot(model, aes(.fitted, sqrt(abs(.stdresid)))) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Scale-Location", x = "Fitted values", y = "√|Standardized Residuals|") +
+  theme_bw()
+```
+
+*The scale-location plot is very similar to the residuals vs fitted plot, which indicates a non-constant variance as well.*
+
+```{r, echo=FALSE}
+# Residuals vs Leverage
+ggplot(model, aes(.hat, .stdresid)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Residuals vs Leverage", x = "Leverage", y = "Standardized Residuals") +
+  theme_bw()
+```
+
+*Residuals vs Leverage plot has a low scale on the x-axis, causing very minmal worry with respect to leverage.*
+
+## Question 5
+
+***Answer***
+
+**Abstract**
+
+*The abstract follows IMRAD guidelines by succinctly summarizing the study's purpose, methods, key findings, and main conclusions. It effectively provides an overview of the entire paper*
+
+**Introduction**
+
+*The introduction adheres to IMRAD principles by providing background information, identifying gaps in current knowledge, and clearly stating the study's objectives.*
+
+**Methods**
+
+*This section somewhat follows IMRAD structure by detailing data sources, variables, and analytical approaches. However, it could be enhanced by providing more information on data collection procedures and any statistical tests used beyond exploratory data analysis.*
+
+**Results**
+
+*The results section somewhat aligns with IMRAD by presenting findings without interpretation, using visual aids to support the analysis. It could be improved by including more quantitative results, such as specific correlation coefficients or statistical test outcomes.*
+
+**Discussion**
+
+*The discussion somewhat follows IMRAD guidelines by interpreting results, acknowledging limitations, and suggesting future research directions. The included some results which should be in the results section. Additionally, information about how the data was sampled should be in the methods section.*

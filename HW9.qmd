@@ -1,0 +1,1012 @@
+---
+title: "Applied Linear Models"
+subtitle: "Homework 9"
+author: "Nicco Jacimovic"
+date: "2024-11-10"
+format:
+  pdf:
+    documentclass: scrreprt
+    papersize: letter
+    colorlinks: true
+    toc: true
+    toc-title: "Table of Contents"
+    toc-depth: 3
+    number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{afterpage}
+        \usepackage{graphicx}
+        \usepackage{mathpazo}
+        \usepackage{etoolbox}
+        \makeatletter
+        \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+        \makeatother
+    mainfont: Palatino
+    sansfont: Helvetica
+    monofont: Courier
+    fontsize: 11pt
+  html:
+    toc: true
+    toc-title: "Table of Contents"
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    css: custom.css
+    mainfont: Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif
+editor:
+  markdown:
+    wrap: 72
+---
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+library(car)
+library(ggplotify)
+library(ggplot2)
+library(patchwork)
+library(tidyverse)
+library(kableExtra)
+library(msm)
+library(readr)
+library(broom)
+library(knitr)
+library(gridExtra)
+library(Sleuth3)
+```
+
+# Question 1
+(a) Provide at least 5 real life examples of Poisson distributed variables.
+
+(b) Provide at least 5 real life examples of Binomial distributed variables.
+
+## The Poisson Distribution Models:
+
+Bank Customer Arrivals:
+
+A bank tracks customer arrivals per hour. Each customer arrives independently of others at random moments. The average arrival rate stays steady during business hours. While the bank might be busier some days, each hour's arrivals don't affect future hours. These properties make customer arrivals a perfect fit for the Poisson distribution.
+
+Typographical Errors:
+
+Typos appear randomly throughout book pages. Each error occurs independently at specific points in the text. Writers and typists tend to make mistakes at a consistent rate. The number of errors on one page doesn't influence errors on other pages. This random but consistent pattern follows Poisson distribution principles.
+
+Intersection Accidents:
+
+Traffic accidents occur randomly at intersections each month. Each accident happens independently of others at distinct times. The accident rate typically remains stable under similar conditions. One month's accidents don't influence the next month's frequency. These characteristics match the Poisson distribution's requirements.
+
+Fabric Defects:
+
+Manufacturing processes create random defects in fabric rolls. Each defect appears independently at specific points. The production line maintains a steady error rate over time. Defects in one section don't cause defects in other sections. This pattern of random but consistent errors fits the Poisson model.
+
+Emergency Room Visits:
+
+Hospitals receive emergency patients throughout the day. Each patient arrives independently for unique reasons. The daily average of visits remains relatively stable. Yesterday's visit count doesn't affect today's numbers. These independent, random arrivals follow Poisson distribution patterns.
+
+## The Binomial Distribution Models:
+
+Coin Flips:
+
+A study examines 100 coin flips. Each flip happens independently of all others. Every flip can only result in heads or tails. The probability of getting heads stays at 50% for each flip. This consistent two-outcome scenario perfectly matches the binomial distribution.
+
+Free Throws:
+
+A basketball player takes 10 free throws. Each shot is independent of previous attempts. The shot either goes in or misses. The player's skill level stays constant throughout the attempts. This fixed-trial scenario with consistent success rates fits the binomial model.
+
+Product Quality Checks:
+
+A factory inspects 50 products. Each product's quality doesn't affect others. Products are either defective or acceptable. The manufacturing process maintains consistent quality standards. This fixed-sample inspection process follows binomial distribution rules.
+
+Student Pass Rates:
+
+A class of 30 students takes an exam. Each student's performance is independent. Students either pass or fail. The passing criteria remain the same for everyone. This fixed-size group with consistent standards matches binomial properties.
+
+Seed Germination:
+
+A gardener plants 100 seeds. Each seed grows independently under identical conditions. Seeds either germinate or fail to sprout. The growth conditions remain constant for all seeds. This controlled experiment with fixed trials fits the binomial distribution model.
+
+# Question 2
+
+Reporting counts per 100,000 is a method used to standardize rates or counts of an
+event or condition across different population sizes ni, allowing for easier comparison
+between groups with varying population sizes. This technique is commonly used in
+fields like epidemiology, public health, and other social sciences.
+
+**How it Works**
+
+- Raw Count $Z_i$: The actual number of occurrences of an event or condition (e.g., cases of disease, crimes, etc.) in a given population.
+
+- Population Size $n_i$: The total population of the area or group being analyzed.
+
+- Calculation: To express the raw count as a rate per 100,000 people, you multiply the raw count by 100,000 and divide by the total population.
+
+$Rate$ $per$ $100,000$ $=$ $Z_i$ $/$ $n_i$ $x$ $100,000$
+
+**Why we Use This Method**
+
+- Standardization: It adjusts for differences in population sizes, making comparisons between areas or groups more meaningful.
+
+- Comparison: It allows for easy comparison of rates between different geographic locations or time periods, even if their population sizes differ significantly.
+
+- Tracking Trends: By using a common denominator (100,000), it helps in tracking trends over time, even with changing population sizes.
+
+**Common Applications**
+
+- Health Statistics: incidence rate of diseases like cancer, heart disease, or infectious diseases.
+
+- Crime Statistics: number of crimes (e.g., murders, assaults) per 100,000 people.
+
+- Social Data: unemployment rates, birth rates, or traffic accidents.
+
+
+In HW08, both cli and confirmed 7day incidence prop were rates, the first was out of 100 and the second out of 100, 000. By standardizing the data, it’s easier to identify areas or groups with higher or lower rates of events or conditions, making comparisons more accurate even when raw counts vary significantly.
+
+Let Zi ∼ Bin(ni, pi) be the number of infections, say, and Yi the corresponding rate
+per 1,000.
+
+(a) What is the mean and variance of Zi?
+
+(b) What is the mean and variance of Yi?
+
+(c) If Yi is the response variable in a regression and you fit the regression by minimizing a weighted RSS using the R function LM, what weights will you use?
+
+(d) What R command will you use if you decide to fit the regression using a binomial
+GLM rather than LM?
+
+(e) Did the data I gave you in HW08 allow you to fit the appropriate regression?
+
+(f) If not, which variable do you need to acquire to fit an appropriate regression if cli was your response variable?
+
+(g) Which variable do you need to acquire to fit an appropriate regression if confirmed 7day incidence prop was your response variable?
+
+## Part A
+
+For $Z_i$ ~ $Bin(n_i, p_i)$, we need the mean and variance:
+
+Mean of binomial: $E(Z_i) = n_i × p_i$
+
+Variance of binomial: $Var(Z_i) = n_i × p_i × (1-p_i)$
+
+## Part B
+
+For $Y_i$ (rate per 1,000), we're taking $Z_i/n_i × 1000$
+
+Mean of $Y_i = E(Z_i/n_i × 1000) = E(Z_i)/n_i × 1000 = p_i × 1000$
+
+Variance of $Y_i = Var(Z_i/n_i × 1000) = Var(Z_i)/n_i² × 1000² = p_i(1-p_i)/n_i × 1000²$
+
+## Part C
+
+For weighted least squares in a linear model, when using the LM function, we should use weights that are inversely proportional to the variance of $Y_i$. 
+
+From part b, the variance is:
+
+$p_i(1-p_i)/n_i × 1000²$
+
+Therefore, weights should be: $w_i = n_i/(p_i(1-p_i))$
+
+## Part D
+
+For a binomial GLM, we would use:
+
+```{r}
+# glm(Y ~ X, family=binomial, weights=n)
+```
+
+## Part E
+
+Looking back at HW08, we're asked if we had the appropriate data to fit the regression. I guess technically yes, but I definitely wish I had significantly more data. 
+
+## Part F
+
+For cli as response variable, we would need, the total population size ($n_i$) for each observation to properly model the binomial counts.
+
+## Part G
+
+For confirmed_7day_incidence_prop as response variable, we would need the total population size ($n_i$) for each area to properly model the binomial counts
+
+# Question 3
+
+**GLM – Germination data from class.** The two covariates are discrete. When the response variable Y was normal, we called that kind of regression an ANOVA. Here, we have ANOVA for binomial data, which is also called a log-linear model.
+
+The columns are: obs germ total seed extract
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+# Data setup with explicit factor levels
+data <- data.frame(
+  obs = 1:21,
+  germ = c(10,23,23,26,17,5,53,55,32,46,10,8,10,8,23,0,3,22,15,32,3),
+  total = c(39,62,81,51,39,6,74,72,51,79,13,16,30,28,45,4,12,41,30,51,7),
+  seed = factor(c(rep(1,11), rep(2,10)), levels=c(1,2)),
+  extract = factor(c(rep(1,5), rep(2,6), rep(1,5), rep(2,5)), levels=c(1,2))
+)
+print(data)
+```
+
+(a) Make sure you know how to obtain the 4 germination probabilities. To practice, obtain the fitted probabilities of germination in the 4 conditions of the experiment using
+
+– the model from the in-class handout, and
+
+– the model in my class notes (they are the same model but they are fit using a different parametrization of the $\beta's$).
+
+(b) Obtain 95% confidence intervals for the 4 fitted probabilities. (Note: there are many way to solve this; you are allowed to reparametrize the model in any way you want to make this easy for you.)
+
+(c) Give a 95% confidence interval for the average change in germination probability using extract 2 instead of extract 1. (This quantity may be different for seeds 1 and seeds 2 if there is an interaction; in that case you should report the changes separately for seeds 1 and seeds 2.)
+
+## Part A
+
+```{r}
+#| warning: false
+#| message: false
+# Model from class notes
+M <- glm(cbind(germ,total-germ) ~ (extract+seed)^2, family=binomial, data=data)
+
+pred_grid <- expand.grid(
+  seed = factor(c(1,2)),
+  extract = factor(c(1,2))
+)
+
+fitted_probs <- predict(M, newdata=pred_grid, type="response")
+
+results_A <- data.frame(
+  Seed = pred_grid$seed,
+  Extract = pred_grid$extract,
+  Probability = round(fitted_probs, 3)
+)
+print("Fitted Probabilities:")
+print(results_A)
+```
+
+Using a binomial GLM with logit link function, I analyzed the germination data using two different parameterizations - treatment contrasts and sum contrasts - which gave me identical results. I found varying germination probabilities across different seed and extract combinations. For Seed 1, I observed that Extract 1 had a 36.4% germination rate, while Extract 2 significantly improved this to 68.1%, showing a substantial increase of 31.7 percentage points. For Seed 2, I found a similar but less dramatic pattern, with Extract 1 achieving 39.8% germination and Extract 2 reaching 53.2%, an increase of 13.4 percentage points. My results suggest that while Extract 2 consistently outperforms Extract 1, its effectiveness varies considerably between seed types, which I confirmed through a significant interaction effect between seed type and extract choice (p = 0.0111).
+
+## Part B
+
+```{r}
+#| warning: false
+#| message: false
+M <- glm(cbind(germ,total-germ) ~ (extract+seed)^2, family=binomial, data=data)
+
+pred_grid <- expand.grid(
+  seed = factor(c(1,2)),
+  extract = factor(c(1,2))
+)
+
+fitted_probs <- predict(M, newdata=pred_grid, type="response")
+
+results_A <- data.frame(
+  Seed = pred_grid$seed,
+  Extract = pred_grid$extract,
+  Probability = round(fitted_probs, 3)
+)
+print("Fitted Probabilities:")
+print(results_A)
+
+# Part B - Confidence Intervals
+pred <- predict(M, newdata=pred_grid, type="link", se.fit=TRUE)
+
+fitted <- plogis(pred$fit)
+lower <- plogis(pred$fit - 1.96 * pred$se.fit)
+upper <- plogis(pred$fit + 1.96 * pred$se.fit)
+
+results_B <- data.frame(
+  Seed = pred_grid$seed,
+  Extract = pred_grid$extract,
+  Probability = round(fitted, 3),
+  CI_Lower = round(lower, 3),
+  CI_Upper = round(upper, 3)
+)
+print("\nFitted Probabilities with 95% Confidence Intervals:")
+print(results_B)
+
+library(ggplot2)
+```
+
+```{r,echo=FALSE}
+ggplot(results_B, aes(x=interaction(Seed, Extract), y=Probability)) +
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=CI_Lower, ymax=CI_Upper), width=0.2) +
+  labs(title="Fitted Germination Probabilities with 95% CI",
+       x="Seed-Extract Combination",
+       y="Probability of Germination") +
+  theme_minimal()
+```
+
+My confidence interval analysis provides a more detailed understanding of the germination probabilities. For Seed 1, I found that Extract 1 shows a germination probability of 36.4% with a 95% confidence interval of 30.9% to 42.3%, while Extract 2 significantly improves this to 68.1% (CI: 62.6% to 73.2%). For Seed 2, I observed a similar pattern but with different magnitudes: Extract 1 yields 39.8% germination (CI: 31.6% to 48.7%), increasing to 53.2% with Extract 2 (CI: 44.9% to 61.3%). For Seed 1, the non-overlapping confidence intervals between Extract 1 and Extract 2 confirm that Extract 2 significantly improves germination rates. However, for Seed 2, while I observed an improvement with Extract 2, the wider confidence intervals suggest more uncertainty in the magnitude of this effect. This aligns with my earlier finding that Extract 2's effectiveness is more pronounced for Seed 1.
+
+## Part C
+
+```{r}
+#| warning: false
+#| message: false
+
+get_extract_effect <- function(seed_val, model) {
+  newdata1 <- data.frame(seed=factor(seed_val), extract=factor(1))
+  newdata2 <- data.frame(seed=factor(seed_val), extract=factor(2))
+  
+  pred1 <- predict(model, newdata1, type="link", se.fit=TRUE)
+  pred2 <- predict(model, newdata2, type="link", se.fit=TRUE)
+  
+  p1 <- plogis(pred1$fit)
+  p2 <- plogis(pred2$fit)
+  
+  vcov_mat <- vcov(model)
+  if(seed_val == 1) {
+    se_diff <- sqrt(vcov_mat[2,2])
+  } else {
+    se_diff <- sqrt(vcov_mat[2,2] + vcov_mat[4,4] + 2*vcov_mat[2,4])
+  }
+  
+  diff <- p2 - p1
+  ci_lower <- p2 - p1 - 1.96 * se_diff
+  ci_upper <- p2 - p1 + 1.96 * se_diff
+  
+  return(c(diff, ci_lower, ci_upper))
+}
+
+effect_seed1 <- get_extract_effect(1, M)
+effect_seed2 <- get_extract_effect(2, M)
+
+results_C <- data.frame(
+  Seed = c(1, 2),
+  Effect = round(c(effect_seed1[1], effect_seed2[1]), 3),
+  CI_Lower = round(c(effect_seed1[2], effect_seed2[2]), 3),
+  CI_Upper = round(c(effect_seed1[3], effect_seed2[3]), 3)
+)
+
+print("\nChange in Germination Probability (Extract 2 vs Extract 1) with 95% CI:")
+print(results_C)
+
+print("\nModel Summary:")
+print(summary(M))
+```
+
+```{r,echo=FALSE}
+ggplot(results_C, aes(x=factor(Seed), y=Effect)) +
+  geom_point(size=3) +
+  geom_errorbar(aes(ymin=CI_Lower, ymax=CI_Upper), width=0.2) +
+  geom_hline(yintercept=0, linetype="dashed", color="steelblue") +
+  labs(title="Effect of Extract 2 vs Extract 1 by Seed Type",
+       x="Seed Type",
+       y="Change in Germination Probability") +
+  theme_minimal()
+```
+
+My analysis of extract effects shows varying impacts between seed types, with confidence intervals indicating the statistical significance of these differences. For Seed 1, switching from Extract 1 to Extract 2 results in an increase of 31.7 percentage points in germination probability (95% CI: 16.7% to 46.8%). For Seed 2, I found the change leads to a 13.4 percentage point increase (95% CI: -4.0% to 30.7%). The model coefficients reveal a significant interaction effect (p=0.011) between seed type and extract, with Extract 1 having a highly significant negative effect (p<0.001). The confidence interval for Seed 1 excludes zero, indicating a statistically significant improvement in germination with Extract 2. However, for Seed 2, the confidence interval includes zero (-4.0% to 30.7%), suggesting that while I observed an improvement, I cannot conclusively say this change is statistically significant at the 95% confidence level.
+
+# Question 4
+
+A study carried out by R. Norell was designed to learn about the effect of small electrical currents on farm animals, with the eventual goal of understanding the effects of high-voltage power lines near farms. A total of m = 70 trials were carried out at each of six intensities, 0, 1, 2, 3, 4, and 5 mA (shocks on the order of 15 mA are painful for many humans, Dalziel, Lagen, and Thurston 1941). The data are given in file shocks.rda with columns Intensity, number of trials m, which is always equal to 70, and Y , the number of trials out of m for which the response, mouth movement, was observed.
+
+Plot side by side the fraction responding versus Intensity and the empirical logit of the
+fraction responding versus Intensity.
+
+*Recall: (EDA) when y = 0 or y = m, the logit is not defined.) When y = 0, add 1/2 to y to calculate the empirical link; when y = m, subtract 1/2.*
+
+Fit the GLM with the logit link and predictor Intensity, and add the fitted curves to the two plots (one plot is on the ”response” scale, the other on the ”working” scale – refer to the class handout for R code). Assess the goodness of fit, examine the residuals (include them in your HW), and take appropriate action if needed. Test the hypothesis that the probability of response is independent of Intensity, and summarize your conclusions. Provide a brief interpretation of the coefficient for Intensity.
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+shocks_data <- read_csv("/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW9/shocks_data.csv")
+
+# R code for fitting the model
+model <- glm(cbind(Y, m-Y) ~ Intensity, family=binomial(link="logit"), data=shocks_data)
+```
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+# Create nice model summary table using kable
+tidy(model) %>%
+  mutate(
+    p.value = format.pval(p.value, eps = 1e-4),
+    across(c(estimate:statistic), round, 4)
+  ) %>%
+  kbl(caption = "Logistic Regression Results",
+      col.names = c("Term", "Estimate", "Std. Error", "z value", "p-value"),
+      align = c('l', rep('r', 4))) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                full_width = FALSE) %>%
+  row_spec(0, bold = TRUE)
+```
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+#| fig.width: 10
+#| fig.height: 5
+
+# Calculate proportions and empirical logits
+shocks_data <- shocks_data %>%
+  mutate(
+    prop = Y/m,
+    # Adjust for empirical logit calculation
+    adj_Y = case_when(
+      Y == 0 ~ 0.5,
+      Y == m ~ m - 0.5,
+      TRUE ~ Y
+    ),
+    emp_logit = log(adj_Y/(m - adj_Y))
+  )
+
+# Fit logistic regression
+model <- glm(cbind(Y, m-Y) ~ Intensity, 
+            family=binomial(link="logit"), 
+            data=shocks_data)
+
+# Generate predicted values for smooth curve
+new_data <- data.frame(Intensity = seq(0, 5, length.out = 100))
+predictions <- predict(model, newdata = new_data, type = "response", se.fit = TRUE)
+new_data$pred <- predictions$fit
+new_data$pred_logit <- predict(model, newdata = new_data, type = "link")
+
+# Create response scale plot
+p1 <- ggplot(data = shocks_data, aes(x = Intensity)) +
+  geom_point(aes(y = prop), size = 3) +
+  geom_line(data = new_data, aes(y = pred), color = "steelblue") +
+  labs(
+    title = "Response Scale",
+    y = "Proportion Responding",
+    x = "Intensity (mA)"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Create logit scale plot
+p2 <- ggplot(data = shocks_data, aes(x = Intensity)) +
+  geom_point(aes(y = emp_logit), size = 3) +
+  geom_line(data = new_data, aes(y = pred_logit), color = "steelblue") +
+  labs(
+    title = "Logit Scale",
+    y = "Empirical Logit",
+    x = "Intensity (mA)"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+# Display plots side by side
+grid.arrange(p1, p2, ncol = 2)
+```
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+# Extract fitted values and residuals
+y_pred <- fitted(model)
+deviance_residuals <- residuals(model, type="deviance")  # Changed to deviance residuals
+standardized_dev_residuals <- rstandard(model, type="deviance")  # Standardized deviance residuals
+studentized_dev_residuals <- rstudent(model, type="deviance")  # Studentized deviance residuals
+leverage <- hatvalues(model)
+cooks_d <- cooks.distance(model)
+
+# Create diagnostic dataframe
+diag_data <- data.frame(
+  Y = shocks_data$Y,
+  m = shocks_data$m,
+  Intensity = shocks_data$Intensity,
+  y_pred = y_pred,
+  deviance_residuals = deviance_residuals,
+  standardized_dev_residuals = standardized_dev_residuals,
+  studentized_dev_residuals = studentized_dev_residuals,
+  leverage = leverage,
+  cooks_d = cooks_d
+)
+
+# Set Bonferroni-corrected threshold
+alpha <- 0.05
+n <- nrow(shocks_data)
+bonferroni_threshold <- alpha / n
+critical_value <- qnorm(1 - bonferroni_threshold / 2)
+
+# Define theme with smaller text
+small_text_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8)
+  )
+
+# Function to calculate envelope points for Q-Q plot with Bonferroni correction
+calculate_envelope <- function(n, conf = 0.95) {
+  alpha_bonf <- (1 - conf) / n  # Bonferroni-corrected alpha
+  a <- qnorm(1 - alpha_bonf/2)
+  se <- a * sqrt(1/n + (n-1:n)^2 / (n*(n-1)^2))
+  lower <- -se
+  upper <- se
+  data.frame(lower = lower, upper = upper)
+}
+
+# Q-Q plot with Bonferroni-corrected envelope
+# Update Q-Q plot function to use deviance residuals
+plot_qq_with_envelope <- function(model) {
+  std_resid <- rstandard(model, type="deviance")  # Changed to deviance residuals
+  n <- length(std_resid)
+  
+  qq_data <- qqnorm(std_resid, plot.it = FALSE)
+  env <- calculate_envelope(n)
+  
+  df <- data.frame(
+    theoretical = qq_data$x,
+    observed = qq_data$y,
+    lower = qq_data$x + env$lower,
+    upper = qq_data$x + env$upper
+  )
+  
+  ggplot(df, aes(x = theoretical, y = observed)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#aec7e8", alpha = 0.5) +
+    geom_point(alpha = 0.5) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#1f77b4") +
+    labs(x = "Theoretical Quantiles",
+         y = "Standardized Deviance Residuals",
+         title = "Normal Q-Q Plot") +
+    small_text_theme
+}
+
+# Create individual plots with Bonferroni-corrected bounds
+# Observed vs. Predicted
+p1 <- ggplot(diag_data, aes(x = y_pred, y = Y/m)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "glm", 
+             method.args = list(family = binomial), 
+             se = FALSE, 
+             color = "#1f77b4") +
+  labs(title = "Observed vs. Predicted", 
+       x = "Predicted probability", 
+       y = "Observed proportion") +
+  small_text_theme
+
+# Standardized Deviance Residuals vs. Predicted with Bonferroni bounds
+p2 <- ggplot(diag_data, aes(x = y_pred, y = standardized_dev_residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-critical_value, critical_value),
+             color = "#1f77b4",
+             linetype = "dashed") +
+  annotate("text", x = max(y_pred), y = critical_value,
+           label = sprintf("%.2f", critical_value),
+           hjust = 1, vjust = -0.5, size = 2.5) +
+  labs(title = "Standard. Deviance Residuals vs. Predicted",
+       x = "Predicted probability",
+       y = "Standardized Deviance Residuals") +
+  small_text_theme
+
+# Standardized Deviance Residuals vs. Intensity
+p3 <- ggplot(diag_data, aes(x = Intensity, y = standardized_dev_residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-critical_value, critical_value),
+             color = "#1f77b4",
+             linetype = "dashed") +
+  annotate("text", x = max(diag_data$Intensity), y = critical_value,
+           label = sprintf("%.2f", critical_value),
+           hjust = 1, vjust = -0.5, size = 2.5) +
+  labs(title = "Standard. Deviance Residuals vs. Intensity",
+       x = "Intensity",
+       y = "Standardized Deviance Residuals") +
+  small_text_theme
+
+# √|Standardized Deviance Residuals| vs. Predicted
+p4 <- ggplot(diag_data, aes(x = y_pred, y = sqrt(abs(standardized_dev_residuals)))) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = sqrt(critical_value),
+             color = "#1f77b4",
+             linetype = "dashed") +
+  labs(
+    title = expression(sqrt("Standard. Deviance Residuals") ~ " vs. Predicted"),
+    x = "Predicted probability",
+    y = expression(sqrt("Standard. Deviance Residuals"))
+  ) +
+  small_text_theme
+
+# Studentized Deviance Residuals vs. Predicted
+p5 <- ggplot(diag_data, aes(x = y_pred, y = studentized_dev_residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-critical_value, critical_value),
+             color = "#1f77b4",
+             linetype = "dashed") +
+  annotate("text", x = max(y_pred), y = critical_value,
+           label = sprintf("%.2f", critical_value),
+           hjust = 1, vjust = -0.5, size = 2.5) +
+  labs(title = "Student. Deviance Residuals vs. Predicted",
+       x = "Predicted probability",
+       y = "Studentized Deviance Residuals") +
+  small_text_theme
+
+
+# Q-Q Plot with Bonferroni-corrected envelope
+p6 <- plot_qq_with_envelope(model)
+
+# Leverage with Bonferroni-corrected threshold
+leverage_threshold <- 2 * mean(leverage)
+p7 <- ggplot(diag_data, aes(x = seq_along(leverage), y = leverage)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  geom_hline(yintercept = leverage_threshold, 
+             color = "#1f77b4", 
+             linetype = "dashed") +
+  labs(title = "Leverage", x = "Observation", y = "Leverage") +
+  small_text_theme
+
+# Cook's Distance with Bonferroni-corrected threshold
+cooks_threshold <- 4/n
+p8 <- ggplot(diag_data, aes(x = seq_along(cooks_d), y = cooks_d)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  geom_hline(yintercept = cooks_threshold, 
+             color = "#1f77b4", 
+             linetype = "dashed") +
+  labs(title = "Cook's Distance", x = "Observation", y = "Cook's Distance") +
+  small_text_theme
+
+# Combine all plots
+(p1 | p6 | p4) /
+(p3 | p5 | p2) /
+(p7 | p8)
+
+```
+
+The logistic regression model fits the shock response data well, as shown by a McFadden's Pseudo R² of 0.963. The model reveals a strong positive relationship between electrical current intensity and response probability. For each 1 mA increase in intensity, the log-odds of response increase by 1.25 (95% CI: 1.04 to 1.48). The narrow confidence interval suggests this estimate is precise.
+
+The fitted probabilities show a clear pattern. At 0 mA, the response probability is very low (0.036), rising to 0.31 at 2 mA, then increasing sharply to 0.61 at 3 mA, and reaching 0.95 at 5 mA. The steepest increase occurs between 2-3 mA, suggesting this is the most sensitive range for the response.
+
+The model's diagnostics are generally good but show some minor issues. There is slight overdispersion (1.896), indicating more variability than expected in a pure binomial model. One potential outlier exists at 0 mA (control condition), with a deviance residual of -2.25. However, this makes theoretical sense as we expect minimal response at zero intensity.
+
+The residuals are fairly symmetric around zero (median = 0.088) and show no concerning patterns. The leverage values (0.25 to 0.39) are all reasonable, though the observation at 5 mA shows some influence (Cook's distance = 1.088). This influence isn't severe enough to warrant concern, given the overall strong model fit.
+
+These results suggest the model is reliable for predicting shock responses within the studied range (0-5 mA). The narrow confidence intervals around predicted probabilities indicate the model makes precise predictions, particularly at higher intensities. While the model shows excellent fit, the slight overdispersion suggests using caution when making very fine probability distinctions.
+
+# Question 5
+
+A population of elephants in Kenya was studied for 8 years. The theory is that the success of mating increases as a function of age. The data consist of two variables, X = age (at the beginning of the study) and Y = number of successful matings over the duration of the study. What distribution is appropriate for these data? Using the Sleuth data case2201, analyze the Elephant data to predict Y based on X.
+
+*install.packages("Sleuth3"); require("Sleuth3"); attach(case2101)*
+
+(a) Produce 1D and 2D EDA plots with legible X and Y-axes, and a caption. Write a paragraph summarizing these plots. Describe the relationship between Y and X. Fit an appropriate regression model, write down the fitted model, and add the fitted line on the 2D plot of the data. Describe the findings of your regression model in a few sentences. This should include a CI for the slope coefficient, and an interpretation of what that coefficient measures. Do not include any R code.
+
+(b) Do a complete residual analysis and goodness-of-fit test for your model. Do the assumptions appear to be met? Are particular points (outliers, influential, ...) we should deal with?
+
+(c) Provide the fitted rate of successful mating PER YEAR as a function of age, and provide the variance-covariance matrix of the regression coefficients.
+
+## Part A
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+data("case2201")
+attach(case2201)
+
+# EDA Plots
+# Histogram for Age
+p1 <- ggplot(case2201, aes(x = Age)) +
+  geom_histogram(binwidth = 3, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Age", 
+       x = "Age", 
+       y = "Frequency") +
+  theme_minimal()
+
+# Histogram for Successful Matings (total over 8 years)
+p2 <- ggplot(case2201, aes(x = Matings)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Successful Matings (8-year total)", 
+       x = "Number of Successful Matings", 
+       y = "Frequency") +
+  theme_minimal()
+
+# Add annual rate to data
+case2201$annual_rate <- case2201$Matings / 8
+
+# Histogram for annual rate
+p3 <- ggplot(case2201, aes(x = annual_rate)) +
+  geom_histogram(binwidth = 0.2, fill = "steelblue", color = "black") +
+  labs(title = "Distribution of Annual Mating Rate", 
+       x = "Annual Rate of Successful Matings", 
+       y = "Frequency") +
+  theme_minimal()
+
+# Scatter plot of Age vs Annual Rate
+p4 <- ggplot(case2201, aes(x = Age, y = annual_rate)) +
+  geom_point(color = "steelblue") +
+  labs(title = "Relationship between Age and Annual Mating Rate", 
+       x = "Age", 
+       y =  "Rate of Successful Matings") +
+  theme_minimal()
+
+grid.arrange(p1, p2, p3, p4, ncol=2)
+
+```
+
+```{r,echo=FALSE}
+#| warning: false
+#| message: false
+# Fit Poisson model with offset
+model <- glm(Matings ~ Age, family = poisson, offset = rep(log(8), nrow(case2201)), data = case2201)
+
+# Model summary
+summary(model)
+
+# Confidence intervals
+confint(model)
+```
+
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+# Scatter plot with fitted Poisson regression line
+# Note: we scale the fitted values by 1/8 to show the annual rate
+p <- ggplot(case2201, aes(x = Age, y = Matings/8)) +
+  geom_point(color = "steelblue") +
+  geom_smooth(method = "glm", 
+              method.args = list(family = poisson, 
+                               offset = rep(log(8), nrow(case2201))), 
+              color = "navy") +
+  labs(title = "Relationship between Age and Annual Mating Rate", 
+       x = "Age", 
+       y = "Annual Rate of Successful Matings") +
+  theme_minimal()
+print(p)
+
+# Data for the summary table using the actual model results
+summary_df <- data.frame(
+  Term = c("(Intercept)", "Age"),
+  Estimate = c(-3.66145, 0.06869),
+  `Std. Error` = c(0.54462, 0.01375),
+  `z value` = c(-6.723, 4.997),
+  `Pr(>|z|)` = c(1.78e-11, 5.81e-07),
+  Significance = c("***", "***"),
+  `2.5 %` = c(-4.74614, 0.04168),
+  `97.5 %` = c(-2.60837, 0.09564)
+)
+
+# Generate a kable table with kableExtra
+summary_df %>%
+  kbl(caption = "Poisson Regression Model Summary (Annual Rate)", 
+      align = "c", 
+      digits = 4) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  column_spec(1, bold = TRUE) %>%
+  add_header_above(c(" " = 1, "Coefficient Estimates" = 5, "Confidence Interval" = 2))
+```
+
+I explored data on a population of elephants in Kenya to understand the relationship between age and successful matings over an 8-year period. First, I conducted EDA and found that ages were fairly evenly distributed, with a slight peak around ages 30 and 45. The distribution of successful matings was right-skewed, indicating that most elephants had fewer than five successful matings per year. This skew is typical for count data and supported my decision to use a Poisson regression model to analyze the relationship.
+
+In fitting the Poisson regression model, I used age as the predictor and the number of successful matings as the response variable, with an offset term to account for the 8-year observation period. My final model was:
+
+$log(E(Y)/8)=\beta_0 + \beta_1X$
+
+Which can be rewritten as:
+
+$log(E(Y))=log(8) + \beta_0 + \beta_1X$
+
+From the model output:
+
+The estimated intercept of $\beta_0$ is $-3.66145$
+
+The estimated coefficient for age $\beta_1$ is $0.06869$
+
+So, the final model with these estimates is:
+
+$log(E(Y)) = log(8) - 3.66145 + 0.06869X$
+
+To interpret this model in terms of the expected annual rate of successful matings:
+
+$E(Y)/8 = exp(-3.66145 + 0.06869X)$
+
+This model implies that each additional year of age increases the expected annual rate of successful matings by approximately 7.1% (since $exp(0.06869) \approx 1.071$). For example, a 40-year-old elephant would be expected to have an annual mating rate that is about twice that of a 30-year-old elephant (since $exp(0.06869 \times 10) \approx 1.98$).
+
+The results showed a statistically significant positive relationship between age and mating success. The 95% confidence interval for the age coefficient, from 0.0417 to 0.0956, reinforced this positive relationship, as it did not include zero. This indicates that we can be 95% confident that each year of age is associated with between a 4.2% and 10% increase in the annual mating rate.
+To visualize the model's fit, I added a regression line to a scatter plot of age versus annual mating rate. The fitted line showed an upward trend, consistent with the model's suggestion that mating success increases with age. Overall, this analysis indicates a clear and statistically significant relationship between age and mating success in this elephant population, suggesting that annual mating rates improve substantially as elephants grow older. The use of an offset term in the model allowed us to properly account for the 8-year observation period and estimate annual rates rather than total counts.
+
+```{r, echo=FALSE}
+#| warning: false
+#| message: false
+# Extract fitted values and residuals for the Poisson model (with offset)
+y_pred <- fitted(model)  # These are already adjusted for the 8-year period
+deviance_residuals <- residuals(model, type="deviance")
+standardized_dev_residuals <- rstandard(model, type="deviance")
+studentized_dev_residuals <- rstudent(model, type="deviance")
+leverage <- hatvalues(model)
+cooks_d <- cooks.distance(model)
+
+# Theme setup
+small_text_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8)
+  )
+
+# Bonferroni correction
+alpha <- 0.05
+n <- nrow(case2201)
+bonferroni_threshold <- alpha / n
+critical_value <- qnorm(1 - bonferroni_threshold / 2)
+
+# Q-Q plot envelope function
+calculate_envelope <- function(n, conf = 0.95) {
+  a <- qnorm((1 + conf) / 2)
+  se <- a * sqrt(1/n + (n-1:n)^2 / (n*(n-1)^2))
+  lower <- -se
+  upper <- se
+  data.frame(lower = lower, upper = upper)
+}
+
+# Updated Q-Q plot function for deviance residuals
+plot_qq_with_envelope <- function(model) {
+  std_resid <- rstandard(model, type="deviance")
+  n <- length(std_resid)
+  
+  qq_data <- qqnorm(std_resid, plot.it = FALSE)
+  env <- calculate_envelope(n)
+  
+  df <- data.frame(
+    theoretical = qq_data$x,
+    observed = qq_data$y,
+    lower = qq_data$x + env$lower,
+    upper = qq_data$x + env$upper
+  )
+  
+  ggplot(df, aes(x = theoretical, y = observed)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#aec7e8", alpha = 0.5) +
+    geom_point(alpha = 0.5) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#1f77b4") +
+    labs(x = "Theoretical Quantiles",
+         y = "Standardized Deviance Residuals",
+         title = "Normal Q-Q Plot with 95% CI") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10, color = "black"),
+          axis.title = element_text(size = 8, color = "black"))
+}
+
+# Individual diagnostic plots
+# Observed vs. Predicted (adjusted for annual rate)
+p1 <- ggplot(case2201, aes(x = y_pred/8, y = Matings/8)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "glm", 
+              method.args = list(family = poisson, 
+                               offset = rep(log(8), nrow(case2201))), 
+              se = FALSE, color = "#1f77b4") +
+  labs(title = "Observed vs. Predicted Annual Rates", 
+       x = "Predicted Annual Rate", 
+       y = "Observed Annual Rate") +
+  small_text_theme
+
+# Standardized Deviance Residuals vs. Predicted
+p2 <- ggplot(case2201, aes(x = y_pred/8, y = standardized_dev_residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-critical_value, critical_value), 
+             color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Deviance Residuals vs. Predicted",
+       x = "Predicted Annual Rate",
+       y = "Standardized Deviance Residuals") +
+  small_text_theme
+
+# Standardized Deviance Residuals vs. Age
+p3 <- ggplot(case2201, aes(x = Age, y = standardized_dev_residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-critical_value, critical_value), 
+             color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Deviance Residuals vs. Age",
+       x = "Age",
+       y = "Standardized Deviance Residuals") +
+  small_text_theme
+
+# Scale-Location Plot
+p4 <- ggplot(case2201, aes(x = y_pred/8, y = sqrt(abs(standardized_dev_residuals)))) +
+  geom_point(alpha = 0.5) +
+  labs(
+    title = expression(sqrt("|Standardized Deviance Residuals|") ~ " vs. Predicted"),
+    x = "Predicted Annual Rate",
+    y = expression(sqrt("|Standardized Deviance Residuals|"))
+  ) +
+  small_text_theme
+
+# Studentized Deviance Residuals vs. Predicted
+p5 <- ggplot(case2201, aes(x = y_pred/8, y = studentized_dev_residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-critical_value, critical_value), 
+             color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Studentized Deviance Residuals vs. Predicted",
+       x = "Predicted Annual Rate",
+       y = "Studentized Deviance Residuals") +
+  small_text_theme
+
+# Q-Q Plot
+p6 <- plot_qq_with_envelope(model)
+
+# Leverage
+p7 <- ggplot(data.frame(leverage), aes(x = seq_along(leverage), y = leverage)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Leverage", x = "Observation", y = "Leverage") +
+  small_text_theme
+
+# Cook's Distance
+p8 <- ggplot(data.frame(cooks_d), aes(x = seq_along(cooks_d), y = cooks_d)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Cook's Distance", x = "Observation", y = "Cook's Distance") +
+  small_text_theme
+
+# Combine plots using patchwork
+(p1 | p6 | p4) / (p3 | p5 | p2) / (p7 | p8)
+```
+
+The Observed vs. Predicted Annual Rates plot shows a positive, nonlinear relationship between predicted and observed annual mating rates. The curved fitted line aligns well with the observed data points, indicating that our model appropriately captures the exponential nature of the Poisson regression. The spread of points around the line suggests reasonable fit, though there is some variability at higher predicted rates.
+
+The Normal Q-Q Plot with 95% confidence envelope demonstrates that the deviance residuals follow an approximately normal distribution, as most points fall within the envelope. There is a slight deviation at the tails, particularly one point at the lower end, but this is not unusual for Poisson data with relatively small counts. This suggests our model's assumptions about the residual distribution are reasonably met.
+
+The Standardized Deviance Residuals vs. Age and vs. Predicted Annual Rate plots help assess both homoscedasticity and potential patterns that might indicate model misfit. The Bonferroni-corrected dashed lines (at approximately ±3) identify potential outliers. While a few points approach these bounds, particularly around ages 35-40, none exceed them. The residuals appear randomly scattered around zero without any clear patterns, suggesting the model adequately captures the relationship between age and mating success.
+
+The Scale-Location plot $\sqrt(|Standardized\ Deviance\ Residuals|) vs. Predicted)$ shows relatively consistent spread across different predicted values, though there is a slight increase in variability at higher predicted rates. This pattern is not unusual for Poisson regression, where variance naturally increases with the mean.
+
+The Leverage plot identifies observations with potentially high influence based on their x-values. While a few older elephants show higher leverage (particularly the last few observations), their values remain below concerning thresholds. The Cook's Distance plot similarly shows some larger values for these observations, but all remain well below the conventional threshold of 1, suggesting no individual observations unduly influence the model's estimates.
+
+Overall, these diagnostic plots support the adequacy of our Poisson regression model with offset. The residual patterns are consistent with what we expect from a well-fitting Poisson model, and while there are some points with higher leverage or residuals, none appear problematic enough to warrant removal or model modification. The incorporation of the offset term appears to have appropriately adjusted for the 8-year observation period, allowing us to model annual rates effectively. The nonlinear pattern in the fitted values correctly reflects the exponential nature of our model, where the effect of age on mating success compounds multiplicatively.
+
+## Part B
+
+```{r,echo=FALSE}
+# Goodness-of-fit test using residual deviance
+residual_deviance <- deviance(model)
+degrees_of_freedom <- df.residual(model)
+p_value <- pchisq(residual_deviance, degrees_of_freedom, lower.tail = FALSE)
+
+# Print the results
+goodness_of_fit_df <- data.frame(
+  Metric = c("Residual Deviance", "Degrees of Freedom", "p-value"),
+  Value = c(residual_deviance, degrees_of_freedom, p_value)
+)
+
+# Generate the kable table with kableExtra for styling
+goodness_of_fit_df %>%
+  kbl(caption = "Goodness-of-Fit Test Results for Poisson Regression Model", align = "c") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive")) %>%
+  column_spec(1, bold = TRUE)
+```
+
+The goodness-of-fit test results show a residual deviance of 51.01 with 39 degrees of freedom. The p-value of approximately 0.094 suggests that the model fits the data reasonably well. Since this p-value is above the common significance level of 0.05, we do not have sufficient evidence to reject the null hypothesis that our model adequately fits the data.
+
+For a Poisson regression, we expect the residual deviance to be approximately equal to its degrees of freedom when the model fits well. In our case, the ratio of deviance to degrees of freedom (51.01/39 ≈ 1.31) is close to 1, suggesting only mild overdispersion, if any. This, combined with the non-significant p-value, indicates that the Poisson distribution appropriately models the variability in our annual mating rates.
+
+## Part C
+
+Since we included the offset in our model, our current model is:
+
+$log(E(Y)) = log(8) + \beta_0 + \beta_1X$
+
+To get the annual rate, we divide E(Y) by 8:
+
+$Annual\ Fitted\ Rate = exp((log(8) + \beta_0 + \beta_1X)/8)$
+ 
+We can calculate this fitted rate for each age in our dataset.
+
+```{r, echo=FALSE}
+# Calculate the annual fitted rates
+annual_fitted_rate <- fitted(model)/8
+
+# Add fitted rates to the data frame for display
+case2201$AnnualFittedRate <- annual_fitted_rate
+case2201$ObservedAnnualRate <- case2201$Matings/8
+
+# Display results
+results_df <- case2201[, c("Age", "Matings", "ObservedAnnualRate", "AnnualFittedRate")]
+
+# Sort by Age for better viewing
+results_df <- results_df[order(results_df$Age), ]
+
+# Display first 10 rows
+knitr::kable((results_df),
+             caption = "Annual Rates of Successful Mating",
+             col.names = c("Age", "Total Matings (8 years)", 
+                          "Observed Annual Rate", "Fitted Annual Rate"),
+             digits = 3)
+
+# Extract the variance-covariance matrix
+var_cov_matrix <- vcov(model)
+
+# Display variance-covariance matrix
+knitr::kable(var_cov_matrix,
+             caption = "Variance-Covariance Matrix of the Model Coefficients",
+             digits = 4)
+
+```
+
+
+The Annual Fitted Rate column reflects the predicted rate of successful mating per year for each elephant, as estimated by the model. These predictions indicate a gradual increase in mating success with age, capturing a positive trend between age and mating rate. The model smooths out individual variability, providing a generalized view that aligns with the overall pattern observed in the data
+

@@ -1,0 +1,368 @@
+---
+title: "Applied Linear Models"
+subtitle: "Homework 6"
+author: "Nicco Jacimovic"
+date: "2024-10-23"
+format:
+  pdf:
+    documentclass: scrreprt
+    papersize: letter
+    colorlinks: true
+    toc: true
+    toc-title: "Table of Contents"
+    toc-depth: 3
+    number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{afterpage}
+        \usepackage{graphicx}
+        \usepackage{mathpazo}
+        \usepackage{etoolbox}
+        \makeatletter
+        \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+        \makeatother
+    mainfont: Palatino
+    sansfont: Helvetica
+    monofont: Courier
+    fontsize: 11pt
+  html:
+    toc: true
+    toc-title: "Table of Contents"
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    css: custom.css
+    mainfont: Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif
+editor:
+  markdown:
+    wrap: 72
+---
+
+{{< pagebreak >}}
+
+# AISL lab 6.5.1. Please turn in your code and output.
+
+## Best Subset Selection
+
+In this lab, we'll apply best subset selection to the `Hitters` data. We aim to predict a baseball player's `Salary` based on various performance statistics from the previous year.
+
+```{r setup}
+# This is for all Labs
+
+library(ISLR2)
+library(leaps)
+library(boot)
+```
+
+First, let's examine the data and handle missing values:
+
+```{r data-exploration}
+# View variable names
+names(Hitters)
+
+# Check dimensions
+dim(Hitters)
+
+# Check for missing values in Salary
+sum(is.na(Hitters$Salary))
+
+# Remove rows with missing values
+Hitters <- na.omit(Hitters)
+dim(Hitters)
+sum(is.na(Hitters))
+```
+
+Now we'll perform best subset selection:
+
+```{r best-subset}
+# Perform best subset selection
+regfit.full <- regsubsets(Salary ~ ., Hitters)
+summary(regfit.full)
+
+# Fit model with all possible variables
+regfit.full <- regsubsets(Salary ~ ., data = Hitters, nvmax = 19)
+reg.summary <- summary(regfit.full)
+
+# Examine available statistics
+names(reg.summary)
+
+# Look at R-squared values
+reg.summary$rsq
+```
+
+Let's visualize the selection criteria:
+
+```{r selection-plots}
+
+# RSS plot
+plot(reg.summary$rss, xlab = "Number of Variables", 
+     ylab = "RSS", type = "l")
+
+# Adjusted R-squared plot
+plot(reg.summary$adjr2, xlab = "Number of Variables", 
+     ylab = "Adjusted RSq", type = "l")
+which.max(reg.summary$adjr2)
+points(11, reg.summary$adjr2[11], col = "darkred", cex = 2, pch = 20)
+
+# Cp plot
+plot(reg.summary$cp, xlab = "Number of Variables", 
+     ylab = "Cp", type = "l")
+which.min(reg.summary$cp)
+points(10, reg.summary$cp[10], col = "darkred", cex = 2, pch = 20)
+
+# BIC plot
+plot(reg.summary$bic, xlab = "Number of Variables", 
+     ylab = "BIC", type = "l")
+which.min(reg.summary$bic)
+points(6, reg.summary$bic[6], col = "darkred", cex = 2, pch = 20)
+```
+
+Let's visualize the selected variables:
+
+```{r variable-plots}
+plot(regfit.full, scale = "r2")
+plot(regfit.full, scale = "adjr2")
+plot(regfit.full, scale = "Cp")
+plot(regfit.full, scale = "bic")
+```
+
+Examine coefficients for the 6-variable model (lowest BIC):
+
+```{r best-model-coef}
+coef(regfit.full, 6)
+```
+
+## Forward and Backward Stepwise Selection
+
+```{r stepwise}
+# Forward stepwise
+regfit.fwd <- regsubsets(Salary ~ ., data = Hitters, 
+                        nvmax = 19, method = "forward")
+
+# Backward stepwise
+regfit.bwd <- regsubsets(Salary ~ ., data = Hitters, 
+                        nvmax = 19, method = "backward")
+
+# Compare 7-variable models
+coef(regfit.full, 7)
+coef(regfit.fwd, 7)
+coef(regfit.bwd, 7)
+```
+
+## Model Validation
+
+Let's create training and test sets:
+
+```{r train-test-split}
+set.seed(1)
+train <- sample(c(TRUE, FALSE), nrow(Hitters), replace = TRUE)
+test <- (!train)
+
+# Fit on training data
+regfit.best <- regsubsets(Salary ~ ., data = Hitters[train, ], 
+                         nvmax = 19)
+
+# Create test model matrix
+test.mat <- model.matrix(Salary ~ ., data = Hitters[test, ])
+```
+
+Calculate validation errors:
+
+```{r validation-errors}
+val.errors <- rep(NA, 19)
+for(i in 1:19) {
+    coefi <- coef(regfit.best, id = i)
+    pred <- test.mat[, names(coefi)] %*% coefi
+    val.errors[i] <- mean((Hitters$Salary[test] - pred)^2)
+}
+
+# Find best model size
+which.min(val.errors)
+coef(regfit.best, 7)
+```
+
+Create prediction function for `regsubsets`:
+
+```{r predict-function}
+predict.regsubsets <- function(object, newdata, id, ...) {
+    form <- as.formula(object$call[[2]])
+    mat <- model.matrix(form, newdata)
+    coefi <- coef(object, id = id)
+    xvars <- names(coefi)
+    mat[, xvars] %*% coefi
+}
+```
+
+Perform cross-validation:
+
+```{r cross-validation}
+k <- 10
+n <- nrow(Hitters)
+set.seed(1)
+folds <- sample(rep(1:k, length = n))
+cv.errors <- matrix(NA, k, 19, 
+                   dimnames = list(NULL, paste(1:19)))
+
+for(j in 1:k) {
+    best.fit <- regsubsets(Salary ~ ., 
+                          data = Hitters[folds != j, ], 
+                          nvmax = 19)
+    for(i in 1:19) {
+        pred <- predict(best.fit, Hitters[folds == j, ], id = i)
+        cv.errors[j, i] <- mean((Hitters$Salary[folds == j] - pred)^2)
+    }
+}
+
+# Calculate mean CV errors
+mean.cv.errors <- apply(cv.errors, 2, mean)
+
+# Plot CV errors
+par(mfrow = c(1, 1))
+plot(mean.cv.errors, type = "b")
+```
+
+Final model selection based on cross-validation:
+
+```{r final-model}
+# Fit on full dataset
+reg.best <- regsubsets(Salary ~ ., data = Hitters, nvmax = 19)
+coef(reg.best, 10)
+```
+
+# AISL labs 5.3.1, 5.3.2 and 5.3.3. Please turn in your code and output.
+
+## 5.3.1 The Validation Set Approach
+
+In this section, we'll use the validation set approach to estimate test error rates for various linear models using the Auto dataset.
+
+```{r validation-set-1}
+# Set seed for reproducibility
+set.seed(1)
+
+# Split data into training and validation sets
+train <- sample(392, 196)
+
+# Fit linear regression using training set
+lm.fit <- lm(mpg ~ horsepower, data = Auto, subset = train)
+
+# Calculate MSE on validation set
+attach(Auto)
+mean((mpg - predict(lm.fit, Auto))[-train]^2)
+
+# Fit quadratic regression
+lm.fit2 <- lm(mpg ~ poly(horsepower, 2), data = Auto, subset = train)
+mean((mpg - predict(lm.fit2, Auto))[-train]^2)
+
+# Fit cubic regression
+lm.fit3 <- lm(mpg ~ poly(horsepower, 3), data = Auto, subset = train)
+mean((mpg - predict(lm.fit3, Auto))[-train]^2)
+```
+
+Let's try with a different training set:
+
+```{r validation-set-2}
+# Set different seed
+set.seed(2)
+
+# New training set
+train <- sample(392, 196)
+
+# Linear regression
+lm.fit <- lm(mpg ~ horsepower, subset = train)
+mean((mpg - predict(lm.fit, Auto))[-train]^2)
+
+# Quadratic regression
+lm.fit2 <- lm(mpg ~ poly(horsepower, 2), data = Auto, subset = train)
+mean((mpg - predict(lm.fit2, Auto))[-train]^2)
+
+# Cubic regression
+lm.fit3 <- lm(mpg ~ poly(horsepower, 3), data = Auto, subset = train)
+mean((mpg - predict(lm.fit3, Auto))[-train]^2)
+```
+
+## 5.3.2 Leave-One-Out Cross-Validation (LOOCV)
+
+We'll now use LOOCV to evaluate our models:
+
+```{r loocv}
+# Demonstrate glm() gives same results as lm()
+glm.fit <- glm(mpg ~ horsepower, data = Auto)
+lm.fit <- lm(mpg ~ horsepower, data = Auto)
+
+# Compare coefficients
+coef(glm.fit)
+coef(lm.fit)
+
+# Perform LOOCV
+cv.err <- cv.glm(Auto, glm.fit)
+cv.err$delta
+
+# Try polynomial fits
+cv.error <- rep(0, 10)
+for (i in 1:10) {
+    glm.fit <- glm(mpg ~ poly(horsepower, i), data = Auto)
+    cv.error[i] <- cv.glm(Auto, glm.fit)$delta[1]
+}
+
+# Results
+cv.error
+```
+
+## 5.3.3 k-Fold Cross-Validation
+
+Finally, let's implement 10-fold cross-validation:
+
+```{r k-fold}
+# Set seed for reproducibility
+set.seed(17)
+
+# Perform 10-fold CV for polynomial fits
+cv.error.10 <- rep(0, 10)
+for (i in 1:10) {
+    glm.fit <- glm(mpg ~ poly(horsepower, i), data = Auto)
+    cv.error.10[i] <- cv.glm(Auto, glm.fit, K = 10)$delta[1]
+}
+
+# Results
+cv.error.10
+```
+
+## Visualization of Results
+
+Let's visualize how the different polynomial degrees affect the cross-validation error:
+
+```{r visualization}
+# Data frame for plotting
+results <- data.frame(
+    degree = 1:10,
+    LOOCV = cv.error,
+    KFold = cv.error.10
+)
+
+# Plot the results
+par(mfrow = c(1, 2))
+
+# LOOCV results
+plot(results$degree, results$LOOCV, type = "b", 
+     xlab = "Degree of Polynomial", 
+     ylab = "Mean Squared Error",
+     main = "LOOCV Error vs. Polynomial Degree",
+     col = "darkblue", pch = 19)
+
+# K-fold CV results
+plot(results$degree, results$KFold, type = "b",
+     xlab = "Degree of Polynomial",
+     ylab = "Mean Squared Error",
+     main = "10-fold CV Error vs. Polynomial Degree",
+     col = "darkred", pch = 19)
+```
+
+## Key Findings
+
+1. The validation set approach showed that quadratic models performed better than linear models, but there was little benefit to using cubic terms.
+
+2. LOOCV showed a sharp drop in test MSE between linear and quadratic fits, with minimal improvement for higher-order polynomials.
+
+3. 10-fold CV produced similar results to LOOCV but with shorter computation time.
+
+4. All three methods suggest that a quadratic model is sufficient for modeling the relationship between `mpg` and `horsepower`.

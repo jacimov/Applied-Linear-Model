@@ -1,0 +1,752 @@
+---
+title: "Applied Linear Models"
+subtitle: "Homework 5"
+author: "Nicco Jacimovic"
+date: "2024-09-30"
+format:
+  pdf:
+    documentclass: scrreprt
+    papersize: letter
+    colorlinks: true
+    toc: true
+    toc-title: "Table of Contents"
+    toc-depth: 3
+    number-sections: true
+    include-in-header:
+      text: |
+        \usepackage{afterpage}
+        \usepackage{graphicx}
+        \usepackage{mathpazo}
+        \usepackage{etoolbox}
+        \makeatletter
+        \patchcmd{\chapter}{\if@openright\cleardoublepage\else\clearpage\fi}{}{}{}
+        \makeatother
+    mainfont: Palatino
+    sansfont: Helvetica
+    monofont: Courier
+    fontsize: 11pt
+  html:
+    toc: true
+    toc-title: "Table of Contents"
+    toc-location: left
+    number-sections: true
+    theme: cosmo
+    css: custom.css
+    mainfont: Palatino, "Palatino Linotype", "Palatino LT STD", "Book Antiqua", Georgia, serif
+editor:
+  markdown:
+    wrap: 72
+---
+
+# Problem 1: Snowgeese
+
+## Problem 1a
+
+```{r}
+#| echo = FALSE
+
+snowgeese <- read.table("/Users/niccolo/Desktop/Applied_Linear_Models/Applied-Linear-Model/HW2/snowgeese.txt", header = TRUE)
+```
+
+```{r echo = FALSE, fig.width=12, fig.height=8, message = FALSE, warning = FALSE}
+library(car)
+library(ggplotify)
+library(ggplot2)
+library(patchwork)
+```
+
+```{r echo = FALSE, fig.width=12, fig.height=8, message = FALSE, warning = FALSE}
+# Fit the OLS model
+model_ols <- lm(Photo ~ Obs1, data = snowgeese)
+
+# Extract fitted values and residuals for the OLS model
+y_pred_ols <- fitted(model_ols)  
+standardized_residuals_ols <- rstandard(model_ols)
+studentized_residuals_ols <- rstudent(model_ols)
+leverage_ols <- hatvalues(model_ols)
+cooks_d_ols <- cooks.distance(model_ols)
+
+# Define a theme with smaller text
+small_text_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8)
+  )
+
+# Observed vs. Predicted (for OLS model)
+p1 <- ggplot(snowgeese, aes(x = y_pred_ols, y = Photo)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#1f77b4") +  # Add red line
+  labs(title = "Observed vs. Predicted", x = "Predicted y", y = "Observed y") +
+  small_text_theme
+
+# Standardized Residuals vs. Predicted
+p2 <- ggplot(snowgeese, aes(x = y_pred_ols, y = standardized_residuals_ols)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Predicted", x = "Predicted y", y = "Standardized Residuals") +
+  small_text_theme
+
+# Standardized Residuals vs. Obs1
+p3 <- ggplot(snowgeese, aes(x = Obs1, y = standardized_residuals_ols)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Obs1", x = "Obs1", y = "Standardized Residuals") +
+  small_text_theme
+
+# √|Standardized Residuals| vs. Predicted
+p4 <- ggplot(snowgeese, aes(x = y_pred_ols, y = sqrt(abs(standardized_residuals_ols)))) +
+  geom_point(alpha = 0.5) +
+  labs(
+    title = expression(sqrt("|Standardized Residuals|") ~ " vs. Predicted"),
+    x = "Predicted y",
+    y = expression(sqrt("|Standardized Residuals|"))
+  ) +
+  small_text_theme
+
+# Studentized Residuals vs. Predicted
+p5 <- ggplot(snowgeese, aes(x = y_pred_ols, y = studentized_residuals_ols)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-2, 2), color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Studentized Residuals vs. Predicted", x = "Predicted y", y = "Studentized Residuals") +
+  small_text_theme
+
+# Function to calculate envelope points for the Q-Q plot
+calculate_envelope <- function(n, conf = 0.95) {
+  a <- qnorm((1 + conf) / 2)
+  se <- a * sqrt(1/n + (n-1:n)^2 / (n*(n-1)^2))
+  lower <- -se
+  upper <- se
+  data.frame(lower = lower, upper = upper)
+}
+
+# Updated function to create Q-Q plot with envelopes for OLS model
+plot_qq_with_envelope <- function(model) {
+  # Get standardized residuals
+  std_resid <- rstandard(model)
+  n <- length(std_resid)
+
+  # Calculate Q-Q plot points
+  qq_data <- qqnorm(std_resid, plot.it = FALSE)
+
+  # Calculate envelope points
+  env <- calculate_envelope(n)
+
+  # Combine data
+  df <- data.frame(
+    theoretical = qq_data$x,
+    observed = qq_data$y,
+    lower = qq_data$x + env$lower,
+    upper = qq_data$x + env$upper
+  )
+
+  ggplot(df, aes(x = theoretical, y = observed)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#aec7e8", alpha = 0.5) +
+    geom_point(alpha = 0.5) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#1f77b4") +
+    labs(x = "Theoretical Quantiles", y = "Standardized Residuals", title = "Normal Q-Q Plot with 95% CI") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10, color = "black"),
+          axis.title = element_text(size = 8, color = "black"))
+}
+
+# Q-Q Plot with Envelope for OLS model
+p6 <- plot_qq_with_envelope(model_ols)
+
+# Leverage
+p7 <- ggplot(data.frame(leverage_ols), aes(x = seq_along(leverage_ols), y = leverage_ols)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Leverage", x = "Observation", y = "Leverage") +
+  small_text_theme
+
+# Cook's Distance
+p8 <- ggplot(data.frame(cooks_d_ols), aes(x = seq_along(cooks_d_ols), y = cooks_d_ols)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Cook's Distance", x = "Observation", y = "Cook's Distance") +
+  small_text_theme
+
+# Combine the plots using patchwork
+(p1 | p6 | p4) /
+(p3 | p5 | p2) /
+(p7 | p8)
+
+```
+
+In our regression of Y on X = Obs1, I observe that the variance increases with the predicted value of Y. I notice one particularly influential point, observation 29, which has a Cook's distance over 10 and is pulling the regression line. For this observation, I see that Obs1 predicted 500 snow geese, which is much higher than any other prediction and significantly differs from the actual flock count of 342 snow geese. Given its disproportionate influence, I will remove this data point from our analysis.
+
+```{r echo = FALSE, fig.width=12, fig.height=8, message = FALSE, warning = FALSE}
+
+# Remove the 29th observation
+snowgeese_clean <- snowgeese[-29, ]
+
+# Refit the linear model without the 28th observation
+model_ols_clean <- lm(Photo ~ Obs1, data = snowgeese_clean)
+
+# Extract fitted values and residuals for the OLS model
+y_pred_ols_clean <- fitted(model_ols_clean)  
+standardized_residuals_ols_clean <- rstandard(model_ols_clean)
+studentized_residuals_ols_clean <- rstudent(model_ols_clean)
+leverage_ols_clean <- hatvalues(model_ols_clean)
+cooks_d_ols_clean <- cooks.distance(model_ols_clean)
+
+# Define a theme with smaller text
+small_text_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8)
+  )
+
+# Observed vs. Predicted (for OLS model with cleaned data)
+p1 <- ggplot(snowgeese_clean, aes(x = y_pred_ols_clean, y = Photo)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#1f77b4") +  # Add red line
+  labs(title = "Observed vs. Predicted", x = "Predicted y", y = "Observed y") +
+  small_text_theme
+
+# Standardized Residuals vs. Predicted
+p2 <- ggplot(snowgeese_clean, aes(x = y_pred_ols_clean, y = standardized_residuals_ols_clean)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Predicted", x = "Predicted y", y = "Standardized Residuals") +
+  small_text_theme
+
+# Standardized Residuals vs. Obs1
+p3 <- ggplot(snowgeese_clean, aes(x = Obs1, y = standardized_residuals_ols_clean)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Obs1", x = "Obs1", y = "Standardized Residuals") +
+  small_text_theme
+
+# √|Standardized Residuals| vs. Predicted
+p4 <- ggplot(snowgeese_clean, aes(x = y_pred_ols_clean, y = sqrt(abs(standardized_residuals_ols_clean)))) +
+  geom_point(alpha = 0.5) +
+  labs(
+    title = expression(sqrt("|Standardized Residuals|") ~ " vs. Predicted"),
+    x = "Predicted y",
+    y = expression(sqrt("|Standardized Residuals|"))
+  ) +
+  small_text_theme
+
+# Studentized Residuals vs. Predicted
+p5 <- ggplot(snowgeese_clean, aes(x = y_pred_ols_clean, y = studentized_residuals_ols_clean)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-2, 2), color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Studentized Residuals vs. Predicted", x = "Predicted y", y = "Studentized Residuals") +
+  small_text_theme
+
+# Function to calculate envelope points for the Q-Q plot
+calculate_envelope <- function(n, conf = 0.95) {
+  a <- qnorm((1 + conf) / 2)
+  se <- a * sqrt(1/n + (n-1:n)^2 / (n*(n-1)^2))
+  lower <- -se
+  upper <- se
+  data.frame(lower = lower, upper = upper)
+}
+
+# Updated function to create Q-Q plot with envelopes for OLS model with cleaned data
+plot_qq_with_envelope <- function(model) {
+  # Get standardized residuals
+  std_resid <- rstandard(model)
+  n <- length(std_resid)
+
+  # Calculate Q-Q plot points
+  qq_data <- qqnorm(std_resid, plot.it = FALSE)
+
+  # Calculate envelope points
+  env <- calculate_envelope(n)
+
+  # Combine data
+  df <- data.frame(
+    theoretical = qq_data$x,
+    observed = qq_data$y,
+    lower = qq_data$x + env$lower,
+    upper = qq_data$x + env$upper
+  )
+
+  ggplot(df, aes(x = theoretical, y = observed)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#aec7e8", alpha = 0.5) +
+    geom_point(alpha = 0.5) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#1f77b4") +
+    labs(x = "Theoretical Quantiles", y = "Standardized Residuals", title = "Normal Q-Q Plot with 95% CI") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10, color = "black"),
+          axis.title = element_text(size = 8, color = "black"))
+}
+
+# Q-Q Plot with Envelope for OLS model with cleaned data
+p6 <- plot_qq_with_envelope(model_ols_clean)
+
+# Leverage
+p7 <- ggplot(data.frame(leverage_ols_clean), aes(x = seq_along(leverage_ols_clean), y = leverage_ols_clean)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Leverage", x = "Observation", y = "Leverage") +
+  small_text_theme
+
+# Cook's Distance
+p8 <- ggplot(data.frame(cooks_d_ols_clean), aes(x = seq_along(cooks_d_ols_clean), y = cooks_d_ols_clean)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Cook's Distance", x = "Observation", y = "Cook's Distance") +
+  small_text_theme
+
+# Combine the plots using patchwork
+(p1 | p6 | p4) /
+(p3 | p5 | p2) /
+(p7 | p8)
+
+```
+
+After removing the outlier in X, I observe that the trend line improves significantly. However, I still detect clear signs of heteroscedasticity in the data. To address this issue, I will employ a weighted regression approach. In this model, I assume that $Var(Y_i ;|; X_i) = \sigma^2 \hat{E}[Y_i ;|;X_i]$. To implement this, I will set the weight as $\frac{1}{\hat{y}}$. This weighting scheme should help to stabilize the variance across the range of predicted values.
+
+```{r echo = FALSE}
+
+# Fit the initial OLS model and collect fitted values
+model <- lm(Photo ~ Obs1, data = snowgeese_clean)
+fitted_values <- fitted(model)
+
+# Use the inverse of the squared fitted values as weights for the WLS model
+weights <- 1 / (fitted_values)
+
+# Fit the WLS model using the weights
+wls_model <- lm(Photo ~ Obs1, data = snowgeese_clean, weights = weights)
+
+```
+
+```{r echo = FALSE, fig.width=12, fig.height=8, message = FALSE, warning = FALSE}
+library(car)
+library(ggplotify)
+library(ggplot2)
+library(patchwork)
+```
+
+```{r echo = FALSE, fig.width=12, fig.height=8, message = FALSE, warning = FALSE}
+# Use the WLS model
+y_pred_wls <- fitted(wls_model)  # Fitted values from the WLS model
+standardized_residuals_wls <- rstandard(wls_model)
+studentized_residuals_wls <- rstudent(wls_model)
+leverage_wls <- hatvalues(wls_model)
+cooks_d_wls <- cooks.distance(wls_model)
+
+# Define a theme with smaller text
+small_text_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8)
+  )
+
+# Observed vs. Predicted
+p1 <- ggplot(snowgeese_clean, aes(x = y_pred_wls, y = Photo)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#1f77b4") +  # Add red line
+  labs(title = "Observed vs. Predicted", x = "Predicted y", y = "Observed y") +
+  small_text_theme
+
+# Standardized Residuals vs. Predicted
+p2 <- ggplot(snowgeese_clean, aes(x = y_pred_wls, y = standardized_residuals_wls)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Predicted", x = "Predicted y", y = "Standardized Residuals") +
+  small_text_theme
+
+# Standardized Residuals vs. Obs1
+p3 <- ggplot(snowgeese_clean, aes(x = Obs1, y = standardized_residuals_wls)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Obs1", x = "Obs1", y = "Standardized Residuals") +
+  small_text_theme
+
+# √|Standardized Residuals| vs. Predicted
+p4 <- ggplot(snowgeese_clean, aes(x = y_pred_wls, y = sqrt(abs(standardized_residuals_wls)))) +
+  geom_point(alpha = 0.5) +
+  labs(
+    title = expression(sqrt("|Standardized Residuals|") ~ " vs. Predicted"),
+    x = "Predicted y",
+    y = expression(sqrt("|Standardized Residuals|"))
+  ) +
+  small_text_theme
+
+# Studentized Residuals vs. Predicted
+p5 <- ggplot(snowgeese_clean, aes(x = y_pred_wls, y = studentized_residuals_wls)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-2, 2), color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Studentized Residuals vs. Predicted", x = "Predicted y", y = "Studentized Residuals") +
+  small_text_theme
+
+# Function to calculate envelope points for the Q-Q plot
+calculate_envelope <- function(n, conf = 0.95) {
+  a <- qnorm((1 + conf) / 2)
+  se <- a * sqrt(1/n + (n-1:n)^2 / (n*(n-1)^2))
+  lower <- -se
+  upper <- se
+  data.frame(lower = lower, upper = upper)
+}
+
+# Updated function to create Q-Q plot with envelopes for WLS model
+plot_qq_with_envelope <- function(model) {
+  # Get standardized residuals
+  std_resid <- rstandard(model)
+  n <- length(std_resid)
+
+  # Calculate Q-Q plot points
+  qq_data <- qqnorm(std_resid, plot.it = FALSE)
+
+  # Calculate envelope points
+  env <- calculate_envelope(n)
+
+  # Combine data
+  df <- data.frame(
+    theoretical = qq_data$x,
+    observed = qq_data$y,
+    lower = qq_data$x + env$lower,
+    upper = qq_data$x + env$upper
+  )
+
+  ggplot(df, aes(x = theoretical, y = observed)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), fill = "#aec7e8", alpha = 0.5) +
+    geom_point(alpha = 0.5) +
+    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "#1f77b4") +
+    labs(x = "Theoretical Quantiles", y = "Standardized Residuals", title = "Normal Q-Q Plot with 95% CI") +
+    theme_minimal() +
+    theme(plot.title = element_text(size = 10, color = "black"),
+          axis.title = element_text(size = 8, color = "black"))
+}
+
+# Q-Q Plot with Envelope for WLS model
+p6 <- plot_qq_with_envelope(wls_model)
+
+# Leverage
+p7 <- ggplot(data.frame(leverage_wls), aes(x = seq_along(leverage_wls), y = leverage_wls)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Leverage", x = "Observation", y = "Leverage") +
+  small_text_theme
+
+# Cook's Distance
+p8 <- ggplot(data.frame(cooks_d_wls), aes(x = seq_along(cooks_d_wls), y = cooks_d_wls)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Cook's Distance", x = "Observation", y = "Cook's Distance") +
+  small_text_theme
+
+# Combine the plots using patchwork
+(p1 | p6 | p4) /
+(p3 | p5 | p2) /
+(p7 | p8)
+
+```
+
+In my analysis of the diagnostics, I find that the weighted least squares (WLS) results closely resemble those of the ordinary least squares (OLS) model, with one notable exception, being the Q-Q plot. I observe that the OLS model, which does not account for heteroscedasticity, shows significant deviations of the residuals from the theoretical quantiles in the plot. The WLS model, on the other hand, improves the normality of the residuals. This improvement occurs because the WLS model adjusts for the variance differences across the dataset, effectively addressing the heteroscedasticity issue.
+
+\pagebreak
+
+## Problem 1b
+
+In this next step, I propose that $Var(Y_i ;|; X_i) = \sigma^2 \times Y_i ;$. This assumption suggests a form of heteroscedasticity where the variance of the residuals is proportional to the dependent variable $Y_i$. Based on this reasoning, I will adjust our weighted least squares (WLS) model. Specifically, I will set the weights in the WLS model to be the inverse of the dependent variable, $\frac{1}{Y_i}$. This weighting scheme should help to account for the variance structure we've assumed in our model.
+
+```{r echo = FALSE}
+# Assuming Var(Y_i | X_i) ≈ σ^2 × Y_i
+
+# Calculate the weights as the inverse of Y (Photo)
+weights_var_Y <- 1 / snowgeese_clean$Photo
+
+# Fit the WLS model using these weights
+wls_var_Y_model <- lm(Photo ~ Obs1, data = snowgeese_clean, weights = weights_var_Y)
+
+y_pred_var_Y <- fitted(wls_var_Y_model)
+standardized_residuals_var_Y <- rstandard(wls_var_Y_model)
+studentized_residuals_var_Y <- rstudent(wls_var_Y_model)
+leverage_var_Y <- hatvalues(wls_var_Y_model)
+cooks_d_var_Y <- cooks.distance(wls_var_Y_model)
+
+```
+
+## Problem 1c
+
+```{r echo = FALSE}
+
+library(knitr)
+
+# Extract fitted values from model (a) (weights = 1 / yhat)
+fitted_a <- y_pred_wls  # From model (a), where weight = 1 / y_pred_wls
+
+# Extract fitted values from model (b) (weights = 1 / Y)
+fitted_b <- y_pred_var_Y  # From model (b), where weight = 1 / Photo
+
+# Compare fitted values
+fitted_comparison <- data.frame(
+  Fitted_Model_A = fitted_a,
+  Fitted_Model_B = fitted_b,
+  Difference = fitted_a - fitted_b
+)
+
+# Create a table for the first 10 fitted values
+fitted_comparison_first10 <- fitted_comparison[1:10, ]
+
+# Display the fitted values table
+kable(fitted_comparison_first10, caption = "Comparison of Fitted Values (First 10 Observations)")
+
+# Compare coefficients and standard errors
+summary_model_a <- summary(wls_model)  # From model (a)
+summary_model_b <- summary(wls_var_Y_model)  # From model (b)
+
+# Extract coefficients and SEs for model (a)
+coef_a <- summary_model_a$coefficients[, 1]  # Coefficients from model (a)
+se_a <- summary_model_a$coefficients[, 2]    # Standard errors from model (a)
+
+# Extract coefficients and SEs for model (b)
+coef_b <- summary_model_b$coefficients[, 1]  # Coefficients from model (b)
+se_b <- summary_model_b$coefficients[, 2]    # Standard errors from model (b)
+
+# Combine the results in a table
+comparison_table <- data.frame(
+  Coefficients_Model_A = coef_a,
+  SE_Model_A = se_a,
+  Coefficients_Model_B = coef_b,
+  SE_Model_B = se_b
+)
+
+# Create a table for coefficients and SEs
+kable(comparison_table, caption = "Comparison of Coefficients and Standard Errors (Model A vs. Model B)")
+
+
+```
+
+In my analysis of the tables, I compare Model A, which uses $\frac{1}{\hat{y}}$ as the weight, and Model B, which uses $\frac{1}{Y_i}$ as the weight. I observe that both models yield very similar results in terms of fitted values and coefficient estimates. While I notice small differences in the fitted values, I find that the predictions are generally consistent across both models.
+
+Examining the coefficients, I see that the estimates for Obs1 and the intercept in both models are very close. Furthermore, I note that their standard errors are nearly identical. These findings lead me to conclude that using the inverse of predicted values (Model A) or actual values (Model B) as weights does not significantly impact the model's performance.
+
+This consistency in results suggests that both weighting approaches are equally effective in addressing the heteroscedasticity issue we identified earlier. The choice between these two weighting methods may therefore depend on other considerations or preferences in our analysis.
+
+## Problem 1d
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+# Prediction for a new observation where the count of geese is 200
+new_data <- data.frame(Obs1 = 200)
+
+# Use the predict() function with interval = "prediction" to get the prediction interval
+pred_interval <- predict(wls_model, newdata = new_data, interval = "prediction", level = 0.95)
+
+# Display the prediction interval
+kable(data.frame(
+  Predicted = pred_interval[1],
+  Lower_Bound_95 = pred_interval[2],
+  Upper_Bound_95 = pred_interval[3]
+), caption = "95% Prediction Interval for the True Number of Geese")
+
+```
+
+Using Model A, which assumes the variance of the residuals is proportional to the predicted values (weight = $\frac{1}{\hat{y}}$), I calculated a 95% prediction interval for our data. For an observer's count of 200 geese, I predicted approximately 262 geese. The 95% prediction interval I computed ranges from about 229 to 294 geese. This interval suggests that, when accounting for the observed variability, I can state with 95% confidence that the true number of geese lies within this range. This prediction interval provides a measure of uncertainty around our point estimate, reflecting the model's accuracy in predicting individual observations.
+
+## Problem 1e
+
+When using the ordinary least squares (OLS) method, I assume constant variance in the residuals. However, I recognize that this assumption is often violated in real-world data. To address this issue, I employ the sandwich estimator. This estimator provides robust standard errors by accounting for heteroscedasticity in the data.
+
+The sandwich estimator adjusts the standard errors to be more robust when the constant variance assumption is violated. By using this approach, I can obtain more reliable estimates of the variability in my model coefficients. This adjustment is particularly important in our case, where we have observed clear signs of heteroscedasticity in the data.
+
+The sandwich estimator formula: $\hat{Var}(\hat{\beta}) = (X^{T}X)^{-1} X^{T} \sum^{-1} X(X^{T}X)^{-1}$
+
+```{r echo = FALSE, warning = FALSE, message=FALSE}
+# Step 2: Fit the OLS model
+ols_model <- lm(Photo ~ Obs1, data = snowgeese_clean)
+
+# Step 3: Calculate robust standard errors using sandwich estimator
+library(sandwich)
+library(lmtest)
+robust_se <- vcovHC(ols_model, type = "HC1")
+
+# Step 4: Get the robust coefficients and standard errors
+robust_coef <- coeftest(ols_model, vcov = robust_se)
+
+# Step 5: Predict the number of geese for Obs1 = 200
+new_data <- data.frame(Obs1 = 200)
+pred_ols <- predict(ols_model, newdata = new_data, interval = "prediction", level = 0.95)
+
+# Display the prediction interval using sandwich estimator
+library(knitr)
+kable(data.frame(
+  Predicted = pred_ols[1],
+  Lower_Bound_95 = pred_ols[2],
+  Upper_Bound_95 = pred_ols[3]
+), caption = "95% Prediction Interval for the True Number of Geese (OLS with Sandwich Estimator)")
+
+
+```
+
+In my analysis using the OLS model with the sandwich estimator, I find that for an Obs1 value of 200, the predicted number of geese remains approximately 262. However, I observe that the 95% prediction interval using this method ranges from 189 to 334 geese. This interval is notably wider than the one I obtained from the weighted least squares (WLS) model, which ranged from 229 to 294 geese.
+
+I expected this wider interval from the sandwich estimator. Unlike the WLS model, the sandwich estimator does not weight the observations based on an assumed variance structure. This difference in approach allows the WLS model to be more efficient and provide tighter intervals.
+
+I note that while the sandwich estimator still provides robust standard errors, it does not directly model the variance. In contrast, the WLS model explicitly incorporates our assumptions about the variance structure into the estimation process. This difference explains why the WLS model can produce more precise intervals in this case.
+
+\pagebreak
+
+## Problem 1f
+
+To address potential non-linearity and heteroscedasticity in our data, I will fit a new model that predicts $log(Y)$ from $log(X)$. This logarithmic transformation should help stabilize the variance in our data.
+
+By applying this transformation, I expect to see several benefits. First, if the relationship between Y and X is not linear, the log transformation may linearize it, making our model more appropriate. Second, this approach often helps to reduce heteroscedasticity, as it can compress the scale of variables with large values and spread out the scale for smaller values.
+
+After fitting this model, I will analyze its performance and compare it to our previous models to determine if it provides a better fit for our data.
+
+```{r echo = FALSE}
+
+# Log-transform Y and Obs1
+snowgeese_clean$log_Photo <- log(snowgeese_clean$Photo)
+snowgeese_clean$log_Obs1 <- log(snowgeese_clean$Obs1)
+
+# Fit the model with log-transformed data
+log_model <- lm(log_Photo ~ log_Obs1, data = snowgeese_clean)
+
+```
+
+```{r echo = FALSE, fig.width=12, fig.height=8, message = FALSE}
+library(car)
+library(ggplotify)
+library(ggplot2)
+library(patchwork)
+
+# Step 1: Use the log-transformed model
+y_pred_log <- fitted(log_model)  # Fitted values from the log-transformed model
+standardized_residuals_log <- rstandard(log_model)
+studentized_residuals_log <- rstudent(log_model)
+leverage_log <- hatvalues(log_model)
+cooks_d_log <- cooks.distance(log_model)
+
+# Define a theme with smaller text
+small_text_theme <- theme_minimal() +
+  theme(
+    plot.title = element_text(size = 10),
+    axis.title = element_text(size = 8),
+    axis.text = element_text(size = 8)
+  )
+
+# Observed vs. Predicted (in log scale)
+p1 <- ggplot(snowgeese_clean, aes(x = y_pred_log, y = log_Photo)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, color = "#1f77b4") +  # Add red line
+  labs(title = "Observed vs. Predicted (Log Scale)", x = "Predicted log(y)", y = "Observed log(y)") +
+  small_text_theme
+
+# Standardized Residuals vs. Predicted
+p2 <- ggplot(snowgeese_clean, aes(x = y_pred_log, y = standardized_residuals_log)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Predicted", x = "Predicted log(y)", y = "Standardized Residuals") +
+  small_text_theme
+
+# Standardized Residuals vs. Obs1 (in log scale)
+p3 <- ggplot(snowgeese_clean, aes(x = log_Obs1, y = standardized_residuals_log)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Standardized Residuals vs. Log(Obs1)", x = "Log(Obs1)", y = "Standardized Residuals") +
+  small_text_theme
+
+# √|Standardized Residuals| vs. Predicted
+p4 <- ggplot(snowgeese_clean, aes(x = y_pred_log, y = sqrt(abs(standardized_residuals_log)))) +
+  geom_point(alpha = 0.5) +
+  labs(
+    title = expression(sqrt("|Standardized Residuals|") ~ " vs. Predicted"),
+    x = "Predicted log(y)",
+    y = expression(sqrt("|Standardized Residuals|"))
+  ) +
+  small_text_theme
+
+# Studentized Residuals vs. Predicted
+p5 <- ggplot(snowgeese_clean, aes(x = y_pred_log, y = studentized_residuals_log)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = c(-2, 2), color = "#1f77b4", linetype = "dashed") +
+  labs(title = "Studentized Residuals vs. Predicted", x = "Predicted log(y)", y = "Studentized Residuals") +
+  small_text_theme
+
+# Q-Q Plot with Envelope for log-transformed model
+p6 <- plot_qq_with_envelope(log_model)
+
+# Leverage
+p7 <- ggplot(data.frame(leverage_log), aes(x = seq_along(leverage_log), y = leverage_log)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Leverage", x = "Observation", y = "Leverage") +
+  small_text_theme
+
+# Cook's Distance
+p8 <- ggplot(data.frame(cooks_d_log), aes(x = seq_along(cooks_d_log), y = cooks_d_log)) +
+  geom_bar(stat = "identity", fill = "#1f77b4", alpha = 0.5) +
+  labs(title = "Cook's Distance", x = "Observation", y = "Cook's Distance") +
+  small_text_theme
+
+# Combine the plots using patchwork
+(p1 | p6 | p4) /
+(p3 | p5 | p2) /
+(p7 | p8)
+
+```
+
+```{r echo = FALSE}
+
+# Predict the log number of geese for log(200)
+new_data_log <- data.frame(log_Obs1 = log(200))
+log_pred <- predict(log_model, newdata = new_data_log, interval = "prediction", level = 0.95)
+
+# Back-transform the predictions to the original scale
+predicted_original <- exp(log_pred)
+
+# Display the prediction interval on the original scale
+kable(data.frame(
+  Predicted = predicted_original[1],
+  Lower_Bound_95 = predicted_original[2],
+  Upper_Bound_95 = predicted_original[3]
+), caption = "95% Prediction Interval for the True Number of Geese (Log-Transformed Model)")
+
+```
+
+I examined the 95% prediction intervals using the log-transformed models. I back-transformed the predictions to compare them with the other models' prediction intervals, as the values were initially log-transformed. In my analysis, when I observe 200 geese (Obs1 = 200), I predict the true number of geese in the flock to be 250. My prediction comes with a 95% prediction interval ranging from 126 to 495 geese. 
+
+I found this interval to be much wider than the one I obtained from the Weighted Least Squares (WLS) model, which ranged from 229 to 294 geese. Additionally, it is wider than the interval I calculated from the Ordinary Least Squares (OLS) model with the sandwich estimator, which spanned from 189 to 334 geese.
+
+\pagebreak
+
+## Problem 1g
+
+```{r echo = FALSE}
+
+# Create a data frame with the prediction intervals
+intervals_df <- data.frame(
+  Method = c("WLS Model", "OLS with Sandwich Estimator", "Log-Transformed Model"),
+  Predicted = c(261.66, 261.23, 250.09),
+  Lower_Bound_95 = c(229.50, 188.80, 126.29),
+  Upper_Bound_95 = c(293.82, 333.66, 495.24)
+)
+
+# Display the table using kable
+kable(intervals_df, caption = "Comparison of 95% Prediction Intervals for the True Number of Geese")
+
+
+```
+
+I found that the Weighted Least Squares (WLS) model produced the tightest prediction interval. This result aligns with my expectations, as I explicitly modeled the variance structure in this approach. When I used the Ordinary Least Squares (OLS) model with the sandwich estimator, I obtained a wider interval. However, this method still proved more efficient than the log-transformed model. In my analysis, the log-transformed model yielded the widest prediction interval. 
+
+I attribute this expansive range possibly to the uncertainty introduced by the back-transformation process. Through this comparison, I gained insights into how different modeling approaches affect the precision of my predictions.
+
+# Problem 2
+
+## Part B
+
+In your introduction, there's a minor grammatical error where you say, "We are interesting in assessing if rail trails are attractive to people buying homes." This should be "interested," not "interesting." Additionally, the last sentence of the introduction claims that "building a house closer to a rail trail does appear to cause an increase in house value." This is a strong statement of causality, which doesn’t seem justified by the data presented. I recommend rephrasing this to suggest a correlation, unless the analysis later clearly establishes causality.
+
+You’ve removed outliers in the EDA section, but there isn’t much explanation for this decision. Removing outliers can significantly affect results, so it’s important to give a clear rationale here, especially as it relates to how these outliers impact the findings. I suggest you include a more detailed justification in the Methods section, as it will improve the transparency of your analysis.
+
+The scatterplot in Figure 4 showing house price against distance to the rail trail is a good visual, but I noticed there’s no discussion about the non-constant variance. This is an important point to highlight because it affects how we interpret the relationship. I suggest adding an explanation in the figure caption or in the main text to clarify how this variation influences your conclusions.
+
+When it comes to your decision to exclude latitude and longitude (p. 12), I think this could be reconsidered. Given that location is a key element of your analysis, removing these variables without a clear explanation leaves a gap. Even though modeling latitude and longitude can be complex, you should either explain more thoroughly why these were discarded or consider using non-parametric methods to handle them. This would strengthen the rigor of your analysis.
+
+I noticed that while you found the proximity to the rail trail to be statistically significant (p-value < 0.05), the effect size is quite small. It’s important to emphasize this in your results, as even though the relationship is significant, it may not be practically meaningful. This clarification will give the reader a more realistic sense of the impact that proximity to rail trails has on house prices.
+
+In the limitations section, you note that the data is from 2014, which is a good observation. However, I think this limitation should be introduced earlier in the report. Since the data is more than a decade old, it’s important to set the reader’s expectations up front, especially considering how much the housing market has changed since then. Bringing this up earlier would provide a clearer context for your findings.
+
+## Part C
+
+Favorite Graph: I chose the scatterplot of House Price vs. Distance to Rail Trail (Figure 4, p. 5). This graph is my favorite because it clearly visualizes the negative relationship between house prices and proximity to the rail trail. The plot effectively demonstrates the spread of house prices closer to the trail, which highlights the variance that may be overlooked when just looking at summary statistics.
+
+Good Part of the Analysis: The exploration of the effect of distance on house price in multivariate scatterplots is particularly effective (p. 5-7). The inclusion of other continuous variables, like square footage, makes the analysis feel well-rounded and thorough. I wish I had approached multivariate analysis with the same consideration of interactions.
+
+Effective Paragraph: The section explaining the diagnostic checks for the final model (p. 14) stands out. The authors use standardized residuals to check for assumptions and articulate their findings concisely. This paragraph is particularly effective in demonstrating that the model reasonably holds up to the assumptions of linear regression.
